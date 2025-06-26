@@ -12,28 +12,21 @@
 CHIP Mux4Way16 {
     IN a[16], b[16], c[16], d[16], sel[2];
     OUT out[16];
-    
     PARTS:
-    
-    
+    Or(a= sel[1], b=sel[0] , out= selforAB );
+    And(a=sel[1] , b=sel[0] , out= selforCD);
+    Mux16(a=a , b= b, sel= selforAB, out= AB); 
+    Mux16(a= c, b=d , sel=selforCD , out=CD ); 
+    // f1 = x AND not(y)
+    // f2 = (f1 OR x AND y)
+    // f(x,y) => f1 OR f2
 
-    Or(a= sel[0], b=sel[1] , out= selforAB );
-    And(a=sel[0] , b=sel[1] , out= selforCD);
-
-    Mux16(a=a , b= b, sel= selforAB, out= AB);
-    Mux16(a= c, b=d , sel=selforCD , out=CD );
-
-   
-    And(a= sel[1], b=sel[0], out= selfinal);
-    
-    // fails on 1 test
-    Mux16(a= AB, b=CD , sel=selfinal , out=out );
+    Not(in=sel[0], out=noty);
+    And(a= sel[1], b=noty , out= f1);
+    And(a= sel[1], b= sel[0], out= f2);
+    Or(a= f1, b= f2, out= finalsel);
 
 
-
-
-
-
-
+    Mux16(a= AB, b=CD , sel=finalsel , out=out );
 
 }
