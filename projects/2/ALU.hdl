@@ -41,13 +41,33 @@ CHIP ALU {
         ng;      // if (out < 0)  equals 1, else 0
 
     PARTS:
-  
-// x and y are now zero in case we need
-Or16(a=x , b= true, out= noteverythingxy);
-Not16(in= noteverythingxy, out= xoryaszero);
+
+Or16(a=x , b= true, out= noteverythingx);
+Not16(in= noteverythingx, out= xzero);
+Or16(a=y , b= true, out= noteverythingy);
+Not16(in= noteverythingy, out= yzero);
+
+Mux16(a= x, b= xzero, sel=zx , out=xafterzx);
+Mux16(a= y, b= yzero, sel=zy , out=yafterzy);
+Not16(in= xafterzx, out= notx);
+Not16(in= yafterzy, out= noty);
 
 
+Mux16(a= xafterzx, b= notx, sel= nx, out= xtouseforf);
+Mux16(a= yafterzy, b= noty, sel= ny, out= ytouseforf);
 
+And16(a= xtouseforf, b=ytouseforf , out= xANDy);
+Add16(a = xtouseforf, b =ytouseforf , out = xADDy);
+Mux16(a= xANDy, b= xADDy, sel= f, out= fout);
+
+Not16(in= fout, out= notfout);
+Mux16(a=fout , b=notfout, sel=no , out=out, out[15]=ng, out[0..7]=half, out[8..15]=secondhalf);
+
+Or8Way(in= half, out=firsthalfiszero );
+Or8Way(in= secondhalf, out= secondhalfiszero);
+
+Or(a= firsthalfiszero, b= secondhalfiszero, out= zrforinput);
+Not(in= zrforinput, out= zr);
 
   
     
