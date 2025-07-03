@@ -1,6 +1,7 @@
 // This file is part of www.nand2tetris.org
 // and the book "The Elements of Computing Systems"
 // by Nisan and Schocken, MIT Press.
+// File name: projects/3/b/RAM4K.hdl
 /**
  * Memory of 4K 16-bit registers.
  * If load is asserted, the value of the register selected by
@@ -12,5 +13,16 @@ CHIP RAM4K {
     OUT out[16];
 
     PARTS:
-    //// Replace this comment with your code.
+    Register(in= in, load=load , out= registerout);
+    DMux8Way(in= load, sel= address[9..11], a= la, b= lb, c= lc, d=ld , e= le, f= lf, g=lg , h=lh );
+    RAM512(in=in , load=la , address=address[0..8], out= out1);
+    RAM512(in=in , load=lb , address=address[0..8], out= out2);
+    RAM512(in=in , load=lc , address=address[0..8], out= out3);
+    RAM512(in=in , load=ld , address=address[0..8], out= out4);
+    RAM512(in=in , load=le , address=address[0..8], out= out5);
+    RAM512(in=in , load=lf , address=address[0..8], out= out6);
+    RAM512(in=in , load=lg , address=address[0..8], out= out7);
+    RAM512(in=in , load=lh , address=address[0..8], out= out8);
+   Mux8Way16(a= out1, b= out2, c= out3, d= out4, e=out5 , f= out6, g= out7, h=out8 , sel=address[9..11] , out=out );
+    
 }
