@@ -7,3 +7,36 @@
 // The algorithm is based on repetitive addition.
 
 //// Replace this comment with your code.
+
+@R0
+D=M // D = Memory[R0]
+@i
+M=D // Memory[i] = Memory[R0]
+@R1
+D=M
+@R2
+M=0
+
+
+(LOOP)
+@i
+D=M
+@END
+D;JEQ
+
+
+@R1
+D=M
+@R2
+M=D+M
+
+
+@i
+M=M-1 // decrease i and check if its 0
+D=M
+
+
+@LOOP
+0;JMP
+@END
+0;JMP
