@@ -1,6 +1,7 @@
 // This file is part of www.nand2tetris.org
 // and the book "The Elements of Computing Systems"
 // by Nisan and Schocken, MIT Press.
+// File name: projects/5/Memory.hdl
 /**
  * The complete address space of the Hack computer's memory,
  * including RAM and memory-mapped I/O. 
@@ -11,10 +12,10 @@
  * location specified by address. If load=1, the in value is loaded 
  * into the memory location specified by address. This value becomes 
  * available through the out output from the next time step onward.
- * Address space rules:
+ * Address space rules: 
  * Only the upper 16K+8K+1 words of the Memory chip are used. 
- * Access to address>0x6000 is invalid. Access to any address in 
- * the range 0x4000-0x5FFF results in accessing the screen memory 
+ * Access to address>0x6000 is invalid and reads 0. Access to any address
+ * in the range 0x4000-0x5FFF results in accessing the screen memory 
  * map. Access to address 0x6000 results in accessing the keyboard 
  * memory map. The behavior in these addresses is described in the Screen
  * and Keyboard chip specifications given in the lectures and the book.
@@ -24,5 +25,35 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-	//// Replace this comment with your code.
+
+    And(a= address[14], b= address[13] , out= outkbd);
+    Not(in=address[14] , out= notA14);
+    Not(in= address[13], out=notA13);
+    And(a= address[14], b=notA13 , out=a14ANDNOTa13); 
+    And(a= address[13], b= notA14, out=a13ANDNOTa14);  
+
+    
+    And(a= load, b= a14ANDNOTa13, out=loadSCREEN );
+    Screen(in= in, load= loadSCREEN, address= address[0..12], out= outscreen);
+    And(a= load, b=notA14 , out= loadRAM);
+    RAM16K(in= in, load= loadRAM, address=address[0..13] , out=outram );
+
+    Or8Way(in=address[0..7] , out= ORfirst8bits);
+    Or(a= address[8], b=address[9] , out=OR8and9 );
+    Or(a= address[10], b=address[11] , out=OR10and11);
+    Or(a= OR8and9, b= OR10and11, out= OR891011);
+    Or(a= OR891011, b= address[12], out= OR89101112);
+    Or(a= ORfirst8bits, b= OR89101112, out= KBDbitsOR);
+    Not(in=KBDbitsOR , out=NOTKBDbitsOR );
+    And(a= outkbd, b= NOTKBDbitsOR, out= kbdisout);
+    Mux16(a=outscreen , b=outram , sel= a13ANDNOTa14, out=screenorram );
+
+    Keyboard(out= kbd);
+    Mux16(a= screenorram, b= kbd, sel= kbdisout, out=kbdForMux );
+
+   
+    Mux4Way16(a= outram, b= outram, c= outscreen, d= kbdForMux, sel=address[13..14] , out= out);
+//  Write: if load(t-1) then Memory[address(t-1)](t) = in(t-1)
+
+    
 }
