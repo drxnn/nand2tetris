@@ -32,12 +32,9 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    /*
-    instruction looks like: ixxaccccccdddjjj -> 543 = ddd
-    Register(in= , load= , out= );
-    */
-    // check if its c or a instruction
-    Not(in= instruction[15], out= isA); // if its 0, it becomes 1 => isA true
+   
+
+    Not(in= instruction[15], out= isA); 
     And(a= instruction[15], b=instruction[3] , out=writeMtmp);
     Or(a= writeMtmp, b=false , out= writeM);
     Mux16(a = false, b = outALU, sel = writeMtmp, out = outM);
@@ -46,37 +43,33 @@ CHIP CPU {
     And(a= instruction[15], b=instruction[5] , out=destA );
     Or(a= destA, b=isA , out=loadA);
     DRegister(in= outALU, load=destD, out= Dregister);
-  
-    // A register can serve as both a data value or address register
+
     Mux16(a= outALU, b=instruction[0..15] , sel=isA , out= AinstructionORoutALU);
     ARegister(in=AinstructionORoutALU, load=loadA , out= Aregister, out[0..14]=addressM);
     Mux16(a= Aregister, b= inM, sel=instruction[12] , out=YinputforALU );
-    // check j bits and zr and ng from alu to determine if jump
+  
 
-    // something wrong here
+   
     // only check when its c instruction => msb is 1
-    And(a= alung, b= instruction[2], out= aluisneg);
+    And(a= alung, b= instruction[2], out= jmpLT); 
+    Not(in= alung, out= notNG);
+     Not(in= aluzr, out= notZR);
+    And(a= aluzr, b=instruction[1] , out= jmpEQ); 
+    Or(a= jmpLT, b= jmpEQ, out= jmpLTorEQ);
+    And(a= notNG, b= notZR, out= ALUpos);
+    Not(in= jmpLTorEQ, out=nojmpLTorEQ );
+
+    And(a= instruction[0], b= ALUpos, out= jmpGT); 
+
+    Or(a= jmpGT, b= jmpLTorEQ, out= jump);
+
+    And(a= jump, b=instruction[15] , out= goJump);
+    Not(in= goJump, out= notGoJump);
+    
 
 
-    And(a= aluzr, b=instruction[1] , out= aluiszero);
+    PC(in= Aregister, load=goJump, inc=notGoJump , reset=reset , out[0..14]=pc);
 
-
-    Or(a= aluisneg, b= aluiszero, out= aluzeroORneg);
-    Not(in= aluzeroORneg, out=notaluzeroORneg );
-
-    And(a= instruction[0], b= notaluzeroORneg, out= ALUpos);
-
-    Or(a= ALUpos, b= aluzeroORneg, out= PcControlBits);
-
-    And(a= PcControlBits, b=instruction[15] , out= PcControlBitsC);
-    Not(in= PcControlBitsC, out= notPcControlBits);
-
-
-    PC(in= Aregister, load=PcControlBitsC, inc=notPcControlBits , reset=reset , out[0..14]=pc);
-
-
-  //ixxaccccccdddjjj
-  //15,14,13,12 ,11->6 for alu
     ALU(x= Dregister,y=YinputforALU,zx=instruction[11],nx=instruction[10],zy=instruction[9],ny=instruction[8],f=instruction[7],no=instruction[6],out=outALU, zr=aluzr, ng= alung);
 
 }
