@@ -37,7 +37,7 @@ CHIP CPU {
     Not(in= instruction[15], out= isA); 
     And(a= instruction[15], b=instruction[3] , out=writeMtmp);
     Or(a= writeMtmp, b=false , out= writeM);
-    Mux16(a = false, b = outALU, sel = writeMtmp, out = outM);
+    Mux16(a = instruction[0..15], b = outALU, sel = writeMtmp, out = outM);
 
     And(a= instruction[15], b=instruction[4] , out=destD );
     And(a= instruction[15], b=instruction[5] , out=destA );
@@ -47,13 +47,10 @@ CHIP CPU {
     Mux16(a= outALU, b=instruction[0..15] , sel=isA , out= AinstructionORoutALU);
     ARegister(in=AinstructionORoutALU, load=loadA , out= Aregister, out[0..14]=addressM);
     Mux16(a= Aregister, b= inM, sel=instruction[12] , out=YinputforALU );
-  
-
-   
-    // only check when its c instruction => msb is 1
+ 
     And(a= alung, b= instruction[2], out= jmpLT); 
     Not(in= alung, out= notNG);
-     Not(in= aluzr, out= notZR);
+    Not(in= aluzr, out= notZR);
     And(a= aluzr, b=instruction[1] , out= jmpEQ); 
     Or(a= jmpLT, b= jmpEQ, out= jmpLTorEQ);
     And(a= notNG, b= notZR, out= ALUpos);
@@ -63,13 +60,14 @@ CHIP CPU {
 
     Or(a= jmpGT, b= jmpLTorEQ, out= jump);
 
+
     And(a= jump, b=instruction[15] , out= goJump);
     Not(in= goJump, out= notGoJump);
     
 
 
+    ALU(x= Dregister,y=YinputforALU,zx=instruction[11],nx=instruction[10],zy=instruction[9],ny=instruction[8],f=instruction[7],no=instruction[6],out=outALU, zr=aluzr, ng= alung);
     PC(in= Aregister, load=goJump, inc=notGoJump , reset=reset , out[0..14]=pc);
 
-    ALU(x= Dregister,y=YinputforALU,zx=instruction[11],nx=instruction[10],zy=instruction[9],ny=instruction[8],f=instruction[7],no=instruction[6],out=outALU, zr=aluzr, ng= alung);
 
 }
