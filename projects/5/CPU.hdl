@@ -1,6 +1,7 @@
 // This file is part of www.nand2tetris.org
 // and the book "The Elements of Computing Systems"
 // by Nisan and Schocken, MIT Press.
+// File name: projects/5/CPU.hdl
 /**
  * The Hack Central Processing unit (CPU).
  * Parses the binary code in the instruction input and executes it according to the
@@ -31,5 +32,51 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-	//// Replace this comment with your code.
+    /*
+    instruction looks like: ixxaccccccdddjjj -> 543 = ddd
+    Register(in= , load= , out= );
+    */
+    // check if its c or a instruction
+    Not(in= instruction[15], out= isA); // if its 0, it becomes 1 => isA true
+    And(a= instruction[15], b=instruction[3] , out=writeMtmp);
+    Or(a= writeMtmp, b=false , out= writeM);
+    Mux16(a = false, b = outALU, sel = writeMtmp, out = outM);
+
+    And(a= instruction[15], b=instruction[4] , out=destD );
+    And(a= instruction[15], b=instruction[5] , out=destA );
+    Or(a= destA, b=isA , out=loadA);
+    DRegister(in= outALU, load=destD, out= Dregister);
+  
+    // A register can serve as both a data value or address register
+    Mux16(a= outALU, b=instruction[0..15] , sel=isA , out= AinstructionORoutALU);
+    ARegister(in=AinstructionORoutALU, load=loadA , out= Aregister, out[0..14]=addressM);
+    Mux16(a= Aregister, b= inM, sel=instruction[12] , out=YinputforALU );
+    // check j bits and zr and ng from alu to determine if jump
+
+    // something wrong here
+    // only check when its c instruction => msb is 1
+    And(a= alung, b= instruction[2], out= aluisneg);
+
+
+    And(a= aluzr, b=instruction[1] , out= aluiszero);
+
+
+    Or(a= aluisneg, b= aluiszero, out= aluzeroORneg);
+    Not(in= aluzeroORneg, out=notaluzeroORneg );
+
+    And(a= instruction[0], b= notaluzeroORneg, out= ALUpos);
+
+    Or(a= ALUpos, b= aluzeroORneg, out= PcControlBits);
+
+    And(a= PcControlBits, b=instruction[15] , out= PcControlBitsC);
+    Not(in= PcControlBitsC, out= notPcControlBits);
+
+
+    PC(in= Aregister, load=PcControlBitsC, inc=notPcControlBits , reset=reset , out[0..14]=pc);
+
+
+  //ixxaccccccdddjjj
+  //15,14,13,12 ,11->6 for alu
+    ALU(x= Dregister,y=YinputforALU,zx=instruction[11],nx=instruction[10],zy=instruction[9],ny=instruction[8],f=instruction[7],no=instruction[6],out=outALU, zr=aluzr, ng= alung);
+
 }
