@@ -1,0 +1,24 @@
+
+@SCREEN
+D=A
+@i
+M=D // M=16384
+
+
+(LOOP)
+@KBD
+D=M
+@MAKEWHITE
+D;JEQ
+
+// MAKE BLACK
+@i
+A=M
+M=-1
+
+@i
+D=M+1
+M=D
+
+@LOOP
+0;JMP

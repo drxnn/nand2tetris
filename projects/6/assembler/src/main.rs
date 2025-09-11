@@ -1,8 +1,5 @@
 /*Assembler to be written in rust
-
 Takes in an .asm file and returns a .hack file
-
-
 Constants and symbols:
 Constants must be non-negative and are written in decimal notation.
 A user-defined symbol can be any sequence of letters,
@@ -33,12 +30,21 @@ Remember:
 Labels like (LOOP) or (END) should mark a ROM address.
 Variables like @i, @sum — should mark RAM locations starting at address 16. */
 
+// cargo run -- file.asm -> file.hack
+
+//
+
 use std::collections::HashMap;
+use std::env;
+
+use std::fs::File;
+use std::io::{self, Read};
 
 enum CommandType {
-    ACommand, //for @Xxx where xxx is either a symbol or a decimal number
-    BCommand, // for dest=comp; jump
-    LCommand, // for (xxx) where Xxx is a symbol. like (LOOP)
+    Undefined,
+    Acommand, //for @Xxx where xxx is either a symbol or a decimal number
+    Ccommand, // for dest=comp; jump
+    Lcommand, // for (xxx) where Xxx is a symbol. like (LOOP)
 }
 struct Parser {
     command_type: CommandType,
@@ -63,7 +69,65 @@ impl CodeBinary {
     }
 }
 
-fn main() {
-    let symbol_table: HashMap<String, u32> = HashMap::new();
-    //Takes in an .asm file and returns a .hack file and reads its line by line twice
+fn process_line(line: &str) {
+    let mut Test = Parser {
+        command_type: CommandType::Undefined,
+        symbol: "".to_string(),
+        dest: "".to_string(),
+        comp: "".to_string(),
+        jump: "".to_string(),
+    };
+    // first check what kind of instruction it is: A, C, L
+    let first_char = line.chars().next().unwrap();
+    if first_char == '@' {
+        Test.command_type = CommandType::Acommand;
+        Test.symbol = first_char.to_string();
+    } else if first_char == '(' {
+        Test.command_type = CommandType::Lcommand;
+        Test.symbol = first_char.to_string();
+    } else {
+        Test.command_type = CommandType::Ccommand
+    }
+}
+
+fn main() -> io::Result<()> {
+    let predefined_symbols = vec![
+        ("SP", 0),
+        ("LCL", 1),
+        ("ARG", 2),
+        ("THIS", 3),
+        ("THAT", 4),
+        ("R0", 0),
+        ("R1", 1),
+        ("R2", 2),
+        ("R3", 3),
+        ("R4", 4),
+        ("R5", 5),
+        ("R6", 6),
+        ("R7", 7),
+        ("R8", 8),
+        ("R9", 9),
+        ("R10", 10),
+        ("R11", 11),
+        ("R12", 12),
+        ("R13", 13),
+        ("R14", 14),
+        ("R15", 15),
+        ("SCREEN", 16384),
+        ("KBD", 24576),
+    ];
+    let symbol_table: HashMap<_, u32> = predefined_symbols.into_iter().collect();
+
+    let mut arguments = env::args();
+    arguments.next();
+
+    let file_to_compile = arguments.next().unwrap();
+    let mut f = File::open(file_to_compile)?;
+
+    let mut buffer = String::new();
+    f.read_to_string(&mut buffer)?;
+
+    println!("here is file to process: {}", buffer);
+
+    Ok(())
 }
