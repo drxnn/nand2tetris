@@ -40,7 +40,7 @@ impl Parser {
     fn advance(&mut self) {
         if self.has_more_commands() {
             // advance to next current and update pos
-            let temp = self.lines[self.pos + 1].clone();
+            let temp = self.lines[self.pos].clone();
             self.current = Some(temp);
             self.pos += 1;
         }
@@ -68,20 +68,29 @@ impl Parser {
         }
     }
 
-    fn dest(&self) -> String {
+    fn dest(&self) -> Option<String> {
         // read into split_once to make code a little better
-        let index = self.current.as_ref().unwrap().find("=").unwrap();
-        return self.current.as_ref().unwrap()[0..index].to_string();
-    }
-
-    fn comp(&self) -> String {
         match self.current.as_ref().unwrap().split_once("=") {
-            Some((_, comp)) => comp.to_string(),
-            None => "".to_string(),
+            Some((dest, _)) => Some(dest.to_string()),
+            _ => None,
         }
     }
-    fn jump() -> String {
-        unimplemented!();
+
+    fn comp(&self) -> Option<String> {
+        // fix
+        // handle if it has jump instruction then strip it
+        let current = self.current.as_ref().unwrap();
+        let right = current.split_once("=").map(|(_, c)| c).unwrap_or(current);
+
+        let temp = right.split_once(";").map(|(c, _)| c).unwrap_or(right);
+
+        Some(temp.to_string())
+    }
+    fn jump(&self) -> Option<String> {
+        match self.current.as_ref().unwrap().split_once(";") {
+            Some((_, jump)) => Some(jump.to_string()),
+            _ => None,
+        }
     }
 }
 
