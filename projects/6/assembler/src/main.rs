@@ -55,6 +55,7 @@ impl Parser {
     }
 
     fn symbol(&self) -> String {
+        // right now it can only be called if its A or L command and its up to the caller to decide, change in the future maybe to Option<>
         if self.current.as_ref().unwrap().starts_with('@') {
             return self.current.as_ref().unwrap()[1..].to_string();
         } else if self.current.as_ref().unwrap().starts_with('(')
@@ -67,12 +68,17 @@ impl Parser {
         }
     }
 
-    fn dest() -> String {
-        unimplemented!();
+    fn dest(&self) -> String {
+        // read into split_once to make code a little better
+        let index = self.current.as_ref().unwrap().find("=").unwrap();
+        return self.current.as_ref().unwrap()[0..index].to_string();
     }
 
-    fn comp() -> String {
-        unimplemented!();
+    fn comp(&self) -> String {
+        match self.current.as_ref().unwrap().split_once("=") {
+            Some((_, comp)) => comp.to_string(),
+            None => "".to_string(),
+        }
     }
     fn jump() -> String {
         unimplemented!();
