@@ -1,39 +1,3 @@
-/*Assembler to be written in rust
-Takes in an .asm file and returns a .hack file
-Constants and symbols:
-Constants must be non-negative and are written in decimal notation.
-A user-defined symbol can be any sequence of letters,
-digits, underscore (_), dot (.), dollar sign ($), and colon (:)
-that does not begin with a digit.
-
-Comments:
-Text beginning with two slashes (//) and ending at the end of
-the line is considered a comment and is ignored.
-
-White Space:
-Space characters are ignored. Empty lines are ignored.
-
-Case Conventions:
-All the assembly mnemonics must be written in uppercase.
-The rest (user-defined labels and variable names) is case sensitive.
-The convention is to use uppercase for labels and lowercase for
-variable names.
-
-Proposed architecture:
-Parser module that parses the input,
-Code module that provides the binary codes of all the assembly mnemonics,
-SymbolTable module that handles symbols,
-main program that drives the entire translation process.
-
-- Use a hashmap to store symbols and the address they point to
-Remember:
-Labels like (LOOP) or (END) should mark a ROM address.
-Variables like @i, @sum — should mark RAM locations starting at address 16. */
-
-// cargo run -- file.asm -> file.hack
-
-//
-
 use std::collections::HashMap;
 use std::env;
 
@@ -41,52 +5,106 @@ use std::fs::File;
 use std::io::{self, Read};
 
 enum CommandType {
-    Undefined,
     Acommand, //for @Xxx where xxx is either a symbol or a decimal number
     Ccommand, // for dest=comp; jump
     Lcommand, // for (xxx) where Xxx is a symbol. like (LOOP)
 }
 struct Parser {
-    command_type: CommandType,
-    symbol: String, //Returns the symbol or decimal xxx of the current command @Xxx or (Xxx). Should be called only when commandType() is A or L
-    dest: String,   //Returns the dest mnemonic in the current C-command
-    comp: String, // Returns the comp mnemonic in the current C-command, should only be called when C command
-    jump: String, // Returns the jump mnemonic
+    lines: Vec<String>,
+    pos: usize,              // line pos
+    current: Option<String>, // command
+}
+
+impl Parser {
+    fn new(file: &str) -> Self {
+        let mut lines = Vec::new();
+
+        for line in file.lines() {
+            let sanitized_line = line.split("//").next().unwrap_or("").trim();
+            if !sanitized_line.is_empty() {
+                lines.push(sanitized_line.to_string());
+            }
+        }
+
+        Self {
+            lines,
+            pos: 0,
+            current: None,
+        }
+    }
+
+    fn has_more_commands(&self) -> bool {
+        self.pos < self.lines.len()
+    }
+
+    fn advance(&mut self) {
+        if self.has_more_commands() {
+            // advance to next current and update pos
+            let temp = self.lines[self.pos + 1].clone();
+            self.current = Some(temp);
+            self.pos += 1;
+        }
+    }
+
+    fn command_type(&self) -> CommandType {
+        match self.current.as_ref().unwrap().chars().next().unwrap() {
+            '@' => CommandType::Acommand,
+            '(' => CommandType::Lcommand,
+            _ => CommandType::Ccommand,
+        }
+    }
+
+    fn symbol(&self) -> String {
+        if self.current.as_ref().unwrap().starts_with('@') {
+            return self.current.as_ref().unwrap()[1..].to_string();
+        } else if self.current.as_ref().unwrap().starts_with('(')
+            && self.current.as_ref().unwrap().ends_with(')')
+        {
+            return self.current.as_ref().unwrap()[1..self.current.as_ref().unwrap().len() - 1]
+                .to_string();
+        } else {
+            return "".to_string();
+        }
+    }
+
+    fn dest() -> String {
+        unimplemented!();
+    }
+
+    fn comp() -> String {
+        unimplemented!();
+    }
+    fn jump() -> String {
+        unimplemented!();
+    }
 }
 
 // translate mnemonics to binary
 struct CodeBinary;
 
 impl CodeBinary {
-    fn dest_to_binary(dest: String) {
-        // return binary
-    }
+    // A is the address register
+    // M means RAM[A]
+    // D is the data register
+    // fn dest_to_binary(dest: &str) -> (u32, u32, u32) {
+    //     match dest {
+    //         "D" => (0, 1, 0),
+    //     }
+    // }
     fn comp_to_binary(comp: String) {
         // return binary
     }
-    fn jump_to_binary(jump: String) {
-        // return binary
-    }
-}
-
-fn process_line(line: &str) {
-    let mut Test = Parser {
-        command_type: CommandType::Undefined,
-        symbol: "".to_string(),
-        dest: "".to_string(),
-        comp: "".to_string(),
-        jump: "".to_string(),
-    };
-    // first check what kind of instruction it is: A, C, L
-    let first_char = line.chars().next().unwrap();
-    if first_char == '@' {
-        Test.command_type = CommandType::Acommand;
-        Test.symbol = first_char.to_string();
-    } else if first_char == '(' {
-        Test.command_type = CommandType::Lcommand;
-        Test.symbol = first_char.to_string();
-    } else {
-        Test.command_type = CommandType::Ccommand
+    fn jump_to_binary(jump: &str) -> (u32, u32, u32) {
+        match jump {
+            "JGT" => (0, 0, 1),
+            "JEQ" => (0, 1, 0),
+            "JGE" => (0, 1, 1),
+            "JLT" => (1, 0, 0),
+            "JNE" => (1, 0, 1),
+            "JLE" => (1, 1, 0),
+            "JMP" => (1, 1, 1),
+            _ => (0, 0, 0),
+        }
     }
 }
 
@@ -127,7 +145,12 @@ fn main() -> io::Result<()> {
     let mut buffer = String::new();
     f.read_to_string(&mut buffer)?;
 
+    let mut parser = Parser::new(&buffer);
+    let mut binary_file: Vec<&Vec<u32>> = Vec::new();
+
     println!("here is file to process: {}", buffer);
+
+    for line in buffer.lines() {}
 
     Ok(())
 }
