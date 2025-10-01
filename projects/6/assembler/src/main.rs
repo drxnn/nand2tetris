@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::env;
 
-use std::fs::File;
-use std::io::{self, Read};
+use std::fs::{self, File};
+use std::io::{self, Read, Write};
 
+#[derive(PartialEq)]
 enum CommandType {
     Acommand, //for @Xxx where xxx is either a symbol or a decimal number
     Ccommand, // for dest=comp; jump
@@ -47,9 +48,9 @@ impl Parser {
     }
 
     fn command_type(&self) -> CommandType {
-        match self.current.as_ref().unwrap().chars().next().unwrap() {
-            '@' => CommandType::Acommand,
-            '(' => CommandType::Lcommand,
+        match self.current.as_ref().and_then(|x| x.chars().next()) {
+            Some('@') => CommandType::Acommand,
+            Some('(') => CommandType::Lcommand,
             _ => CommandType::Ccommand,
         }
     }
@@ -70,16 +71,14 @@ impl Parser {
 
     fn dest(&self) -> Option<String> {
         // read into split_once to make code a little better
-        match self.current.as_ref().unwrap().split_once("=") {
+        match self.current.as_ref()?.split_once("=") {
             Some((dest, _)) => Some(dest.to_string()),
             _ => None,
         }
     }
 
     fn comp(&self) -> Option<String> {
-        // fix
-        // handle if it has jump instruction then strip it
-        let current = self.current.as_ref().unwrap();
+        let current = self.current.as_ref()?;
         let right = current.split_once("=").map(|(_, c)| c).unwrap_or(current);
 
         let temp = right.split_once(";").map(|(c, _)| c).unwrap_or(right);
@@ -87,14 +86,13 @@ impl Parser {
         Some(temp.to_string())
     }
     fn jump(&self) -> Option<String> {
-        match self.current.as_ref().unwrap().split_once(";") {
+        match self.current.as_ref()?.split_once(";") {
             Some((_, jump)) => Some(jump.to_string()),
             _ => None,
         }
     }
 }
 
-// translate mnemonics to binary
 struct CodeBinary;
 
 impl CodeBinary {
@@ -106,10 +104,8 @@ impl CodeBinary {
     //         "D" => (0, 1, 0),
     //     }
     // }
-    fn comp_to_binary(comp: &str) {
+    fn comp_to_binary(comp: &str) -> (u32, u32, u32, u32, u32, u32, u32) {
         let mut output: (u32, u32, u32, u32, u32, u32, u32) = (0, 0, 0, 0, 0, 0, 0);
-
-        comp.split("").for_each(|x| {});
 
         if comp == "1"
             || comp == "!D"
@@ -227,6 +223,8 @@ impl CodeBinary {
         {
             output.0 = 1
         }
+
+        output
     }
     fn jump_to_binary(jump: &str) -> (u32, u32, u32) {
         match jump {
@@ -256,6 +254,10 @@ impl CodeBinary {
 }
 
 fn main() -> io::Result<()> {
+    let mut args = env::args();
+
+    let file_name = args.nth(1).unwrap_or(" ".to_string());
+    println!("argument is {}", file_name);
     let predefined_symbols = vec![
         ("SP", 0),
         ("LCL", 1),
@@ -281,7 +283,10 @@ fn main() -> io::Result<()> {
         ("SCREEN", 16384),
         ("KBD", 24576),
     ];
-    let symbol_table: HashMap<_, u32> = predefined_symbols.into_iter().collect();
+    let mut symbol_table: HashMap<_, u32> = predefined_symbols
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v))
+        .collect();
 
     let mut arguments = env::args();
     arguments.next();
@@ -293,11 +298,80 @@ fn main() -> io::Result<()> {
     f.read_to_string(&mut buffer)?;
 
     let mut parser = Parser::new(&buffer);
-    let mut binary_file: Vec<&Vec<u32>> = Vec::new();
+
+    let mut binary_file: Vec<String> = Vec::new();
 
     println!("here is file to process: {}", buffer);
+    let mut rom_address = 0;
 
-    for line in buffer.lines() {}
+    for (i, line) in buffer.lines().enumerate() {
+        if parser.command_type() == CommandType::Lcommand {
+            let label = parser.symbol();
+            if !symbol_table.contains_key(&label) {
+                symbol_table.insert(label.to_string(), rom_address.clone());
+            }
+        } else {
+            rom_address += 1;
+        }
+        parser.advance();
+    }
+
+    let mut parser = Parser::new(&buffer);
+
+    for (i, line) in buffer.lines().enumerate() {
+        if parser.command_type() == CommandType::Acommand {
+            let label = parser.symbol();
+            let num_to_binary: u32;
+
+            if symbol_table.contains_key(&label) {
+                num_to_binary = *symbol_table.get(&label).unwrap();
+                let binary_str = format!("{:016b}", num_to_binary);
+                binary_file.push(binary_str);
+            } else {
+                let ram_address = symbol_table.len() as u32;
+                symbol_table.insert(label, ram_address);
+
+                let binary_str = format!("{:016b}", ram_address);
+                binary_file.push(binary_str);
+            }
+        } else if parser.command_type() == CommandType::Ccommand {
+            let comp = parser.comp().unwrap_or(" ".to_string());
+            let dest = parser.dest().unwrap_or(" ".to_string());
+            let jump = parser.jump().unwrap_or(" ".to_string());
+
+            let comp_bits = CodeBinary::comp_to_binary(&comp);
+
+            let dest_bits = CodeBinary::dest_to_binary(&dest);
+            let jump_bits = CodeBinary::jump_to_binary(&jump);
+
+            let mut s = String::from("111");
+            s.push_str(&comp_bits.0.to_string());
+            s.push_str(&comp_bits.1.to_string());
+            s.push_str(&comp_bits.2.to_string());
+            s.push_str(&comp_bits.3.to_string());
+            s.push_str(&comp_bits.4.to_string());
+            s.push_str(&comp_bits.5.to_string());
+            s.push_str(&comp_bits.6.to_string());
+            s.push_str(&dest_bits.0.to_string());
+            s.push_str(&dest_bits.1.to_string());
+            s.push_str(&dest_bits.2.to_string());
+            s.push_str(&jump_bits.0.to_string());
+            s.push_str(&jump_bits.1.to_string());
+            s.push_str(&jump_bits.2.to_string());
+            binary_file.push(s);
+        }
+
+        //
+        parser.advance();
+    }
+
+    let mut file_to_create = file_name.strip_suffix(".asm").unwrap().to_string();
+    file_to_create.push_str(".hack");
+    println!("file to create is : {}", file_to_create);
+    let mut f = File::create_new(file_to_create)?;
+    for line in binary_file {
+        writeln!(f, "{}", line)?;
+    }
 
     Ok(())
 }

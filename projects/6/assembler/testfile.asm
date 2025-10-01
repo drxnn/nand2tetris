@@ -1,4 +1,6 @@
 
+
+
 @SCREEN
 D=A
 @i
@@ -18,6 +20,28 @@ M=-1
 
 @i
 D=M+1
+M=D
+
+@LOOP
+0;JMP
+
+
+
+@MAKEWHITE
+@KBD
+D=M
+
+@LOOP
+0;JGT
+
+
+
+@i
+A=M
+M=0
+
+@i
+D=M-1
 M=D
 
 @LOOP
