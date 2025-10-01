@@ -106,8 +106,127 @@ impl CodeBinary {
     //         "D" => (0, 1, 0),
     //     }
     // }
-    fn comp_to_binary(comp: String) {
-        // return binary
+    fn comp_to_binary(comp: &str) {
+        let mut output: (u32, u32, u32, u32, u32, u32, u32) = (0, 0, 0, 0, 0, 0, 0);
+
+        comp.split("").for_each(|x| {});
+
+        if comp == "1"
+            || comp == "!D"
+            || comp == "!A"
+            || comp == "-D"
+            || comp == "-A"
+            || comp == "D+1"
+            || comp == "A+1"
+            || comp == "D-A"
+            || comp == "A-D"
+            || comp == "D|A"
+            || comp == "!M"
+            || comp == "-M"
+            || comp == "M+1"
+            || comp == "D-M"
+            || comp == "M-D"
+            || comp == "D|M"
+        {
+            output.6 = 1
+        };
+
+        if comp == "1"
+            || comp == "0"
+            || comp == "-1"
+            || comp == "-D"
+            || comp == "-A"
+            || comp == "D+1"
+            || comp == "A+1"
+            || comp == "D-1"
+            || comp == "A-1"
+            || comp == "D+A"
+            || comp == "D-A"
+            || comp == "A-D"
+            || comp == "-M"
+            || comp == "M+1"
+            || comp == "M-1"
+            || comp == "D+M"
+            || comp == "D-M"
+            || comp == "M-D"
+        {
+            output.5 = 1
+        }
+        if comp == "1"
+            || comp == "D"
+            || comp == "-D"
+            || comp == "!D"
+            || comp == "D+1"
+            || comp == "D-1"
+            || comp == "A+1"
+            || comp == "A-D"
+            || comp == "D|A"
+            || comp == "M+1"
+            || comp == "M-D"
+            || comp == "D|A"
+        {
+            output.4 = 1
+        };
+        if comp == "0"
+            || comp == "1"
+            || comp == "-1"
+            || comp == "D"
+            || comp == "!D"
+            || comp == "-D"
+            || comp == "D+1"
+            || comp == "D-1"
+        {
+            output.3 = 1
+        };
+        if comp == "1"
+            || comp == "A"
+            || comp == "-1"
+            || comp == "!A"
+            || comp == "-A"
+            || comp == "A-1"
+            || comp == "D+1"
+            || comp == "A+1"
+            || comp == "D-A"
+            || comp == "D|A"
+            || comp == "!M"
+            || comp == "M"
+            || comp == "-M"
+            || comp == "M+1"
+            || comp == "M-1"
+            || comp == "D-M"
+            || comp == "D|A"
+        {
+            output.2 = 1
+        };
+        if comp == "1"
+            || comp == "0"
+            || comp == "-1"
+            || comp == "!A"
+            || comp == "-A"
+            || comp == "A"
+            || comp == "A-1"
+            || comp == "A+1"
+            || comp == "!M"
+            || comp == "M"
+            || comp == "-M"
+            || comp == "M+1"
+            || comp == "M-1"
+        {
+            output.1 = 1
+        };
+        if comp == "M"
+            || comp == "!M"
+            || comp == "-M"
+            || comp == "M+1"
+            || comp == "M-1"
+            || comp == "D+M"
+            || comp == "D-M"
+            || comp == "M-D"
+            || comp == "D&M"
+            || comp == "D|M"
+        {
+            output.0 = 1
+        }
     }
     fn jump_to_binary(jump: &str) -> (u32, u32, u32) {
         match jump {
@@ -120,6 +239,19 @@ impl CodeBinary {
             "JMP" => (1, 1, 1),
             _ => (0, 0, 0),
         }
+    }
+    fn dest_to_binary(dest: &str) -> (u32, u32, u32) {
+        // break dest into individual characters: M, D, A
+        // then have each character(either present or not) return a 1 or 0 in their respective positions
+        let mut output: (u32, u32, u32) = (0, 0, 0);
+        dest.split("").for_each(|x| match x {
+            "M" => output.2 = 1,
+            "D" => output.1 = 1,
+            "A" => output.0 = 1,
+            _ => (),
+        });
+
+        output
     }
 }
 
