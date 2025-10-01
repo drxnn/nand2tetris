@@ -44,6 +44,8 @@ impl Parser {
             let temp = self.lines[self.pos].clone();
             self.current = Some(temp);
             self.pos += 1;
+        } else {
+            self.current = None;
         }
     }
 
@@ -96,14 +98,6 @@ impl Parser {
 struct CodeBinary;
 
 impl CodeBinary {
-    // A is the address register
-    // M means RAM[A]
-    // D is the data register
-    // fn dest_to_binary(dest: &str) -> (u32, u32, u32) {
-    //     match dest {
-    //         "D" => (0, 1, 0),
-    //     }
-    // }
     fn comp_to_binary(comp: &str) -> (u32, u32, u32, u32, u32, u32, u32) {
         let mut output: (u32, u32, u32, u32, u32, u32, u32) = (0, 0, 0, 0, 0, 0, 0);
 
@@ -304,7 +298,7 @@ fn main() -> io::Result<()> {
     println!("here is file to process: {}", buffer);
     let mut rom_address = 0;
 
-    for (i, line) in buffer.lines().enumerate() {
+    for _i in 0..parser.lines.len() {
         if parser.command_type() == CommandType::Lcommand {
             let label = parser.symbol();
             if !symbol_table.contains_key(&label) {
@@ -318,7 +312,8 @@ fn main() -> io::Result<()> {
 
     let mut parser = Parser::new(&buffer);
 
-    for (i, line) in buffer.lines().enumerate() {
+    parser.advance();
+    for _i in 0..parser.lines.len() {
         if parser.command_type() == CommandType::Acommand {
             let label = parser.symbol();
             let num_to_binary: u32;
@@ -361,7 +356,6 @@ fn main() -> io::Result<()> {
             binary_file.push(s);
         }
 
-        //
         parser.advance();
     }
 
