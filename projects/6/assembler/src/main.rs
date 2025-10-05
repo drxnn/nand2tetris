@@ -154,6 +154,7 @@ impl CodeBinary {
             || comp == "M+1"
             || comp == "M-D"
             || comp == "D|A"
+            || comp == "D|M"
         {
             output.4 = 1
         };
@@ -185,6 +186,7 @@ impl CodeBinary {
             || comp == "M-1"
             || comp == "D-M"
             || comp == "D|A"
+            || comp == "D|M"
         {
             output.2 = 1
         };
@@ -295,10 +297,9 @@ fn main() -> io::Result<()> {
 
     let mut binary_file: Vec<String> = Vec::new();
 
-    println!("here is file to process: {}", buffer);
     let mut rom_address = 0;
 
-    for _i in 0..parser.lines.len() {
+    for i in 0..parser.lines.len() {
         if parser.command_type() == CommandType::Lcommand {
             let label = parser.symbol();
             if !symbol_table.contains_key(&label) {
@@ -306,6 +307,10 @@ fn main() -> io::Result<()> {
             }
         } else {
             rom_address += 1;
+            if i == 0 {
+                // unnecessary -> change
+                rom_address = 0;
+            }
         }
         parser.advance();
     }
@@ -313,6 +318,17 @@ fn main() -> io::Result<()> {
     let mut parser = Parser::new(&buffer);
 
     parser.advance();
+
+    /*
+        line 6007:
+        my output:  111 1 000001 001000
+        correct out: 111 1 010101 001000
+        command:   M=D|M
+
+    111 0 110000 010 000
+
+         */
+    let mut ram_address: u32 = 16;
     for _i in 0..parser.lines.len() {
         if parser.command_type() == CommandType::Acommand {
             let label = parser.symbol();
@@ -323,11 +339,19 @@ fn main() -> io::Result<()> {
                 let binary_str = format!("{:016b}", num_to_binary);
                 binary_file.push(binary_str);
             } else {
-                let ram_address = symbol_table.len() as u32;
-                symbol_table.insert(label, ram_address);
+                // check if symbpl or num first
+                if label.clone().parse::<u32>().is_ok() {
+                    let label_address = label.parse::<u32>();
+                    symbol_table.insert(label.clone(), *label_address.as_ref().unwrap());
+                    let binary_str = format!("{:016b}", label_address.unwrap());
+                    binary_file.push(binary_str);
+                } else {
+                    symbol_table.insert(label, ram_address);
+                    let binary_str = format!("{:016b}", ram_address);
+                    ram_address += 1;
 
-                let binary_str = format!("{:016b}", ram_address);
-                binary_file.push(binary_str);
+                    binary_file.push(binary_str);
+                }
             }
         } else if parser.command_type() == CommandType::Ccommand {
             let comp = parser.comp().unwrap_or(" ".to_string());
@@ -361,7 +385,7 @@ fn main() -> io::Result<()> {
 
     let mut file_to_create = file_name.strip_suffix(".asm").unwrap().to_string();
     file_to_create.push_str(".hack");
-    println!("file to create is : {}", file_to_create);
+
     let mut f = File::create_new(file_to_create)?;
     for line in binary_file {
         writeln!(f, "{}", line)?;
