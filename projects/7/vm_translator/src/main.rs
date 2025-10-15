@@ -1,10 +1,12 @@
+use std::i16;
+
 fn main() {
 
     // a parser module
     // codewriter module
 }
 // goes through vm commands and generates assembly code
-
+#[derive(PartialEq)]
 enum VMCOMMAND {
     CArithmetic,
     CPush,
@@ -56,49 +58,40 @@ impl Parser {
     }
 
     fn command_type(&self) -> VMCOMMAND {
-        todo!()
+        let c = self.current.as_ref().unwrap().to_string();
+
+        match c {
+            c if c.contains("pop") => VMCOMMAND::CPop,
+            c if c.contains("push") => VMCOMMAND::CPush,
+            c if ["add", "sub", "lt", "eq", "gt", "and", "or", "not", "neg"]
+                .iter()
+                .any(|&x| c.contains(x)) =>
+            {
+                VMCOMMAND::CArithmetic
+            }
+            _ => panic!("Unknown command: {}", c),
+        }
     }
 
-    fn arg_one(&self) -> &str {
-        todo!()
+    fn arg_one(&self) -> Option<&String> {
+        if self.command_type() == VMCOMMAND::CArithmetic {
+            self.current.as_ref()
+        } else {
+            None
+        }
     }
-    fn arg_two(&self) -> i16 {
-        todo!()
+    fn arg_two(&self) -> Option<i16> {
+        let ct = self.command_type();
+        match ct {
+            VMCOMMAND::CCall | VMCOMMAND::CFunction | VMCOMMAND::CPop | VMCOMMAND::CPush => {
+                let s = self.current.as_ref()?;
+                s.split_whitespace()
+                    .nth(2)
+                    .and_then(|x| x.parse::<i16>().ok())
+            }
+            _ => None,
+        }
     }
 }
 
-// arithmetic commands:
-
-fn add(a: i16, b: i16) -> i16 {
-    a + b
-}
-fn sub(a: i16, b: i16) -> i16 {
-    a - b
-}
-
-fn neg(x: i16) -> i16 {
-    -x
-}
-
-fn eq(a: i16, b: i16) -> i16 {
-    if a == b { -1 } else { 0 }
-}
-
-fn gt(a: i16, b: i16) -> i16 {
-    if a > b { -1 } else { 0 }
-}
-fn lt(a: i16, b: i16) -> i16 {
-    if a < b { -1 } else { 0 }
-}
-
-fn and(a: i16, b: i16) -> i16 {
-    a & b
-}
-
-fn or(a: i16, b: i16) -> i16 {
-    a | b
-}
-
-fn not(x: i16) -> i16 {
-    !x
-}
+struct CodeWriter;
