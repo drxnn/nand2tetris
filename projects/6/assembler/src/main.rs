@@ -6,14 +6,14 @@ use std::io::{self, Read, Write};
 
 #[derive(PartialEq)]
 enum CommandType {
-    Acommand, //for @Xxx where xxx is either a symbol or a decimal number
-    Ccommand, // for dest=comp; jump
-    Lcommand, // for (xxx) where Xxx is a symbol. like (LOOP)
+    Acommand,
+    Ccommand,
+    Lcommand,
 }
 struct Parser {
     lines: Vec<String>,
-    pos: usize,              // line pos
-    current: Option<String>, // command
+    pos: usize,
+    current: Option<String>,
 }
 
 impl Parser {
@@ -40,7 +40,6 @@ impl Parser {
 
     fn advance(&mut self) {
         if self.has_more_commands() {
-            // advance to next current and update pos
             let temp = self.lines[self.pos].clone();
             self.current = Some(temp);
             self.pos += 1;
@@ -58,7 +57,6 @@ impl Parser {
     }
 
     fn symbol(&self) -> String {
-        // right now it can only be called if its A or L command and its up to the caller to decide, change in the future maybe to Option<>
         if self.current.as_ref().unwrap().starts_with('@') {
             return self.current.as_ref().unwrap()[1..].to_string();
         } else if self.current.as_ref().unwrap().starts_with('(')
@@ -72,7 +70,6 @@ impl Parser {
     }
 
     fn dest(&self) -> Option<String> {
-        // read into split_once to make code a little better
         match self.current.as_ref()?.split_once("=") {
             Some((dest, _)) => Some(dest.to_string()),
             _ => None,
@@ -235,8 +232,6 @@ impl CodeBinary {
         }
     }
     fn dest_to_binary(dest: &str) -> (u32, u32, u32) {
-        // break dest into individual characters: M, D, A
-        // then have each character(either present or not) return a 1 or 0 in their respective positions
         let mut output: (u32, u32, u32) = (0, 0, 0);
         dest.split("").for_each(|x| match x {
             "M" => output.2 = 1,
@@ -319,15 +314,6 @@ fn main() -> io::Result<()> {
 
     parser.advance();
 
-    /*
-        line 6007:
-        my output:  111 1 000001 001000
-        correct out: 111 1 010101 001000
-        command:   M=D|M
-
-    111 0 110000 010 000
-
-         */
     let mut ram_address: u32 = 16;
     for _i in 0..parser.lines.len() {
         if parser.command_type() == CommandType::Acommand {
@@ -339,7 +325,6 @@ fn main() -> io::Result<()> {
                 let binary_str = format!("{:016b}", num_to_binary);
                 binary_file.push(binary_str);
             } else {
-                // check if symbpl or num first
                 if label.clone().parse::<u32>().is_ok() {
                     let label_address = label.parse::<u32>();
                     symbol_table.insert(label.clone(), *label_address.as_ref().unwrap());
