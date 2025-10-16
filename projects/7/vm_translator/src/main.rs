@@ -1,11 +1,26 @@
+use std::fs::{self, File, OpenOptions};
 use std::i16;
 
-fn main() {
+use std::io::{BufWriter, Write};
+use std::path::PathBuf;
+use std::{env, io};
 
+#[allow(dead_code)]
+fn main() -> io::Result<()> {
     // a parser module
     // codewriter module
+
+    let mut args = env::args();
+    args.next();
+
+    let file_name = args.next().expect("Please provide a filename as argument");
+    let buffer = fs::read_to_string(file_name)?;
+
+    let mut parser = Parser::new(&buffer);
+
+    Ok(())
 }
-// goes through vm commands and generates assembly code
+
 #[derive(PartialEq)]
 enum VMCOMMAND {
     CArithmetic,
@@ -73,11 +88,16 @@ impl Parser {
         }
     }
 
-    fn arg_one(&self) -> Option<&String> {
+    fn arg_one(&self) -> Option<String> {
         if self.command_type() == VMCOMMAND::CArithmetic {
-            self.current.as_ref()
-        } else {
+            self.current.clone()
+        } else if self.command_type() == VMCOMMAND::CReturn {
             None
+        } else {
+            self.current
+                .as_ref()
+                .and_then(|x| x.split_whitespace().nth(1))
+                .map(|x| x.to_string())
         }
     }
     fn arg_two(&self) -> Option<i16> {
@@ -94,4 +114,58 @@ impl Parser {
     }
 }
 
-struct CodeWriter;
+struct CodeWriter {
+    file: Option<BufWriter<File>>,
+    current_file: Option<String>,
+}
+
+impl CodeWriter {
+    fn new() -> Self {
+        let file = OpenOptions::new()
+            .read(true)
+            .append(true)
+            .open("output.asm")
+            .unwrap();
+
+        Self {
+            file: Some(BufWriter::new(file)),
+            current_file: None,
+        }
+    }
+    fn set_file_name(&mut self, fname: &str) {
+        self.current_file = Some(fname.to_string());
+    }
+    fn write_arithmetic(&mut self, command: &str) -> io::Result<()> {
+        let writer = self
+            .file
+            .as_mut()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "output file not opened "))?;
+
+        // writer.write(/* write the assembly here */)
+
+        /*
+        // remember M = Ram[A]
+        // D = holds a value
+        example:
+        @14
+        D=A // D=14
+        A=100
+        M=D // RAM[100] = 14
+        Ram[0] holds the SP
+        Ram[1] holds LCL
+        Ram[2] holds ARG
+        Ram[3] holds THIS
+        Ram[4] holds THAT
+        Ram[5-12] are for general use, holds temp
+        */
+
+        Ok(())
+    }
+    fn write_push_pop(&mut self, command: VMCOMMAND, segment: &str, index: i16) {
+        todo!()
+    }
+
+    fn close() {
+        // close the file
+    }
+}
