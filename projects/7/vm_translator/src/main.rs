@@ -1,3 +1,4 @@
+#![allow(unused)]
 use std::fs::{self, File, OpenOptions};
 use std::i16;
 
@@ -7,9 +8,11 @@ use std::{env, io};
 
 #[allow(dead_code)]
 fn main() -> io::Result<()> {
+    let code_writer = CodeWriter::new();
     // a parser module
     // codewriter module
 
+    // or if a folder is given as input, create a new parser for each file. 1 Codewriter does the job
     let mut args = env::args();
     args.next();
 
@@ -141,23 +144,57 @@ impl CodeWriter {
             .as_mut()
             .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "output file not opened "))?;
 
-        // writer.write(/* write the assembly here */)
+        let machine_code = String::from("");
 
         /*
-        // remember M = Ram[A]
-        // D = holds a value
-        example:
-        @14
-        D=A // D=14
-        A=100
-        M=D // RAM[100] = 14
-        Ram[0] holds the SP
-        Ram[1] holds LCL
-        Ram[2] holds ARG
-        Ram[3] holds THIS
-        Ram[4] holds THAT
-        Ram[5-12] are for general use, holds temp
-        */
+
+              if command == not
+              @SP
+              A=M-1
+              M=!M
+              -------------------------------------------------------------------------------------------------------------------
+              if command == neg
+                              @SP
+                              A=M-1
+                              M=-M
+              -------------------------------------------------------------------------------------------------------------------
+              if command == add
+              @SP
+              A=M-1
+              D=M
+              A=A-1
+              D=D+M
+              M=D
+              @SP
+              D=M-1
+              M=D
+              // if command == sub
+
+              @SP
+              A=M-1
+              D=M
+              A=A-1
+              D=D-M
+              M=D
+              @SP
+              D=M-1
+              M=D
+
+              // if command == lt
+                @SP
+        A=M-1
+        D=M
+        A=A-1
+        D=D+M
+        M=D
+        @SP
+        D=M-1
+        M=D
+
+
+              -------------------------------------------------------------------------------------------------------------------
+
+              */
 
         Ok(())
     }
@@ -169,3 +206,5 @@ impl CodeWriter {
         // close the file
     }
 }
+
+//
