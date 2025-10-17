@@ -8,11 +8,8 @@ use std::{env, io};
 
 #[allow(dead_code)]
 fn main() -> io::Result<()> {
-    let code_writer = CodeWriter::new();
-    // a parser module
-    // codewriter module
+    let mut code_writer = CodeWriter::new();
 
-    // or if a folder is given as input, create a new parser for each file. 1 Codewriter does the job
     let mut args = env::args();
     args.next();
 
@@ -20,6 +17,21 @@ fn main() -> io::Result<()> {
     let buffer = fs::read_to_string(file_name)?;
 
     let mut parser = Parser::new(&buffer);
+
+    for i in 0..=parser.lines.len() {
+        let command_type = parser.command_type();
+        println!(
+            "current line is:, {}",
+            parser.current.as_ref().unwrap_or(&"default".to_string())
+        );
+
+        if command_type == VMCOMMAND::CArithmetic {
+            let command_arg = parser.current.as_ref().unwrap();
+            println!("the command is {}", command_arg);
+            code_writer.write_arithmetic(&command_arg);
+        }
+        parser.advance();
+    }
 
     Ok(())
 }
@@ -66,7 +78,6 @@ impl Parser {
 
     fn advance(&mut self) {
         if self.has_more_commands() {
-            // advance to next current and update pos
             let temp = self.lines[self.pos].clone();
             self.current = Some(temp);
             self.pos += 1;
@@ -76,18 +87,17 @@ impl Parser {
     }
 
     fn command_type(&self) -> VMCOMMAND {
-        let c = self.current.as_ref().unwrap().to_string();
-
-        match c {
-            c if c.contains("pop") => VMCOMMAND::CPop,
-            c if c.contains("push") => VMCOMMAND::CPush,
-            c if ["add", "sub", "lt", "eq", "gt", "and", "or", "not", "neg"]
-                .iter()
-                .any(|&x| c.contains(x)) =>
+        match &self.current {
+            Some(c) if c.contains("pop") => VMCOMMAND::CPop,
+            Some(c) if c.contains("push") => VMCOMMAND::CPush,
+            Some(c)
+                if ["add", "sub", "lt", "eq", "gt", "and", "or", "not", "neg"]
+                    .iter()
+                    .any(|&x| c.contains(x)) =>
             {
                 VMCOMMAND::CArithmetic
             }
-            _ => panic!("Unknown command: {}", c),
+            _ => VMCOMMAND::CReturn, // just for now
         }
     }
 
@@ -120,6 +130,7 @@ impl Parser {
 struct CodeWriter {
     file: Option<BufWriter<File>>,
     current_file: Option<String>,
+    label_index: usize,
 }
 
 impl CodeWriter {
@@ -127,12 +138,15 @@ impl CodeWriter {
         let file = OpenOptions::new()
             .read(true)
             .append(true)
+            .write(true)
+            .create(true)
             .open("output.asm")
             .unwrap();
 
         Self {
             file: Some(BufWriter::new(file)),
             current_file: None,
+            label_index: 0,
         }
     }
     fn set_file_name(&mut self, fname: &str) {
@@ -144,57 +158,51 @@ impl CodeWriter {
             .as_mut()
             .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "output file not opened "))?;
 
-        let machine_code = String::from("");
+        let mut machine_code = String::from("");
 
-        /*
+        let mut true_label = String::from("TRUE_");
+        let mut end_label = String::from("END_");
 
-              if command == not
-              @SP
-              A=M-1
-              M=!M
-              -------------------------------------------------------------------------------------------------------------------
-              if command == neg
-                              @SP
-                              A=M-1
-                              M=-M
-              -------------------------------------------------------------------------------------------------------------------
-              if command == add
-              @SP
-              A=M-1
-              D=M
-              A=A-1
-              D=D+M
-              M=D
-              @SP
-              D=M-1
-              M=D
-              // if command == sub
+        true_label.push_str(command);
+        true_label.push_str(&self.label_index.to_string());
+        end_label.push_str(command);
+        end_label.push_str(&self.label_index.to_string());
 
-              @SP
-              A=M-1
-              D=M
-              A=A-1
-              D=D-M
-              M=D
-              @SP
-              D=M-1
-              M=D
+        match command {
+            "not" => machine_code.push_str("@SP\nA=M-1\nM=!M"),
+            "neg" => machine_code.push_str("@SP\nA=M-1\nM=-M"),
+            "add" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D+M\nM=D\n@SP\nD=M-1\nM=D"),
+            "sub" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D-M\nM=D\n@SP\nD=M-1\nM=D"),
+            "and" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D&M\nM=D\n@SP\nD=M-1\nM=D"),
+            "or" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D|M\nM=D\n@SP\nD=M-1\nM=D"),
+            "eq" => {
+                machine_code = format!(
+                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JEQ\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})"
+                )
+            }
 
-              // if command == lt
-                @SP
-        A=M-1
-        D=M
-        A=A-1
-        D=D+M
-        M=D
-        @SP
-        D=M-1
-        M=D
+            "lt" => {
+                machine_code = format!(
+                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JLT\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})"
+                )
+            }
 
+            "gt" => {
+                machine_code = format!(
+                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JGT\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})"
+                )
+            }
 
-              -------------------------------------------------------------------------------------------------------------------
+            _ => panic!("Unknown arithmetic command"),
+        };
 
-              */
+        self.label_index += 1;
+
+        self.file
+            .as_mut()
+            .unwrap()
+            .write_all(machine_code.as_bytes())?;
+        self.file.as_mut().unwrap().flush()?;
 
         Ok(())
     }
