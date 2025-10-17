@@ -169,27 +169,27 @@ impl CodeWriter {
         end_label.push_str(&self.label_index.to_string());
 
         match command {
-            "not" => machine_code.push_str("@SP\nA=M-1\nM=!M"),
-            "neg" => machine_code.push_str("@SP\nA=M-1\nM=-M"),
-            "add" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D+M\nM=D\n@SP\nD=M-1\nM=D"),
-            "sub" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D-M\nM=D\n@SP\nD=M-1\nM=D"),
-            "and" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D&M\nM=D\n@SP\nD=M-1\nM=D"),
-            "or" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D|M\nM=D\n@SP\nD=M-1\nM=D"),
+            "not" => machine_code.push_str("@SP\nA=M-1\nM=!M\n"),
+            "neg" => machine_code.push_str("@SP\nA=M-1\nM=-M\n"),
+            "add" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D+M\nM=D\n@SP\nD=M-1\nM=D\n"),
+            "sub" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=M-D\nM=D\n@SP\nD=M-1\nM=D\n"),
+            "and" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D&M\nM=D\n@SP\nD=M-1\nM=D\n"),
+            "or" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D|M\nM=D\n@SP\nD=M-1\nM=D\n"),
             "eq" => {
                 machine_code = format!(
-                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JEQ\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})"
+                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JEQ\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})\n"
                 )
             }
 
             "lt" => {
                 machine_code = format!(
-                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JLT\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})"
+                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JLT\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})\n"
                 )
             }
 
             "gt" => {
                 machine_code = format!(
-                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JGT\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})"
+                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JGT\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})\n"
                 )
             }
 
