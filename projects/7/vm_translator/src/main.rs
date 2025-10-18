@@ -52,14 +52,14 @@ fn main() -> io::Result<()> {
             let index = index_str.parse::<i16>().ok().unwrap();
 
             code_writer.write_push_pop(command_name, segment, index);
-        }
+        };
         parser.advance();
     }
 
     Ok(())
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum VMCOMMAND {
     CArithmetic,
     CPush,
@@ -232,9 +232,32 @@ impl CodeWriter {
     fn write_push_pop(&mut self, command: &str, segment: &str, index: i16) -> io::Result<()> {
         let mut machine_code = String::from("");
         match command {
-            "push" => machine_code = format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"),
+            /*
 
-            "pop" => {}
+            @{segment}\nD=M\n@{index}\nA={index}\nD=D+A\n@SP\nA=M\nM=D\n@SP\nM=M+1
+
+
+
+             */
+            "push" => {
+                // make sure if theres no index or segment that you just push a constant
+
+                machine_code = if segment == "constant" {
+                    format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", index = index)
+                } else {
+                    format!(
+                        "@{segment}\nD=M\n@{index}\nA={index}\nD=D+A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
+                        segment = segment,
+                        index = index,
+                    )
+                };
+            }
+
+            "pop" => {
+                // so pop retrieves the last element from the stack, then moves SP so it points to the element below it
+                // memory segments: LCL(local), ARG, THIS, THAT
+                let machine_code = format!("@{segment}\n");
+            }
             _ => todo!(),
         };
 
