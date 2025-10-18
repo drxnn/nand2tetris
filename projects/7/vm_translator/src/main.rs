@@ -26,8 +26,6 @@ fn main() -> io::Result<()> {
             parser.current.as_ref().unwrap_or(&"default".to_string())
         );
 
-        /*------------------------------------------------------------------------------------------------------------------------------ */
-
         // uncluster this later
         if command_type == VMCOMMAND::CArithmetic {
             let command_arg = parser.current.as_ref().ok_or_else(|| {
@@ -56,6 +54,7 @@ fn main() -> io::Result<()> {
         parser.advance();
     }
 
+    code_writer.close()?;
     Ok(())
 }
 
@@ -232,13 +231,6 @@ impl CodeWriter {
     fn write_push_pop(&mut self, command: &str, segment: &str, index: i16) -> io::Result<()> {
         let mut machine_code = String::from("");
         match command {
-            /*
-
-            @{segment}\nD=M\n@{index}\nA={index}\nD=D+A\n@SP\nA=M\nM=D\n@SP\nM=M+1
-
-
-
-             */
             "push" => {
                 // make sure if theres no index or segment that you just push a constant
 
@@ -246,7 +238,7 @@ impl CodeWriter {
                     format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", index = index)
                 } else {
                     format!(
-                        "@{segment}\nD=M\n@{index}\nA={index}\nD=D+A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
+                        "@{segment}\nD=M\n@{index}\nD=D+A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
                         segment = segment,
                         index = index,
                     )
@@ -254,9 +246,11 @@ impl CodeWriter {
             }
 
             "pop" => {
-                // so pop retrieves the last element from the stack, then moves SP so it points to the element below it
-                // memory segments: LCL(local), ARG, THIS, THAT
-                let machine_code = format!("@{segment}\n");
+                machine_code = format!(
+                    "@{segment}\nD=M\n@{index}\nD=D+A\n@R12\nM=D\n@SP\nAM=M-1\nD=M\n@R12\nA=M\nM=D\n",
+                    segment = segment,
+                    index = index
+                );
             }
             _ => todo!(),
         };
@@ -270,8 +264,11 @@ impl CodeWriter {
         Ok(())
     }
 
-    fn close() {
-        // close the file
+    fn close(&mut self) -> io::Result<()> {
+        if let Some(mut w) = self.file.take() {
+            w.flush()?;
+        }
+        Ok(())
     }
 }
 
