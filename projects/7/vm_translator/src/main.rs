@@ -1,4 +1,5 @@
 #![allow(unused)]
+use std::fmt::format;
 use std::fs::{self, File, OpenOptions};
 use std::i16;
 
@@ -25,10 +26,32 @@ fn main() -> io::Result<()> {
             parser.current.as_ref().unwrap_or(&"default".to_string())
         );
 
+        /*------------------------------------------------------------------------------------------------------------------------------ */
+
+        // uncluster this later
         if command_type == VMCOMMAND::CArithmetic {
-            let command_arg = parser.current.as_ref().unwrap();
-            println!("the command is {}", command_arg);
+            let command_arg = parser.current.as_ref().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "missing command arg")
+            })?;
             code_writer.write_arithmetic(&command_arg);
+        } else if command_type == VMCOMMAND::CPop || command_type == VMCOMMAND::CPush {
+            let command_arg = parser.current.as_ref().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "missing command arg")
+            })?;
+            let mut command_iter = command_arg.split_whitespace();
+            let command_name = command_iter.next().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "missing command name")
+            })?;
+            let segment = command_iter.next().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "missing command name")
+            })?;
+            let index_str = command_iter
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing index"))?;
+
+            let index = index_str.parse::<i16>().ok().unwrap();
+
+            code_writer.write_push_pop(command_name, segment, index);
         }
         parser.advance();
     }
@@ -206,8 +229,22 @@ impl CodeWriter {
 
         Ok(())
     }
-    fn write_push_pop(&mut self, command: VMCOMMAND, segment: &str, index: i16) {
-        todo!()
+    fn write_push_pop(&mut self, command: &str, segment: &str, index: i16) -> io::Result<()> {
+        let mut machine_code = String::from("");
+        match command {
+            "push" => machine_code = format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"),
+
+            "pop" => {}
+            _ => todo!(),
+        };
+
+        self.file
+            .as_mut()
+            .unwrap()
+            .write_all(machine_code.as_bytes())?;
+        self.file.as_mut().unwrap().flush()?;
+
+        Ok(())
     }
 
     fn close() {
