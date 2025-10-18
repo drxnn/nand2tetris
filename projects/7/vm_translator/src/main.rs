@@ -229,16 +229,22 @@ impl CodeWriter {
         Ok(())
     }
     fn write_push_pop(&mut self, command: &str, segment: &str, index: i16) -> io::Result<()> {
+        let segment = match (segment, index) {
+            ("pointer", 0) => "THIS",
+            ("pointer", 1) => "THIS",
+            ("this", _) => "THIS",
+            ("that", _) => "THIS",
+            ("argument", _) => "ARG",
+            (s, _) => s,
+        };
         let mut machine_code = String::from("");
         match command {
             "push" => {
-                // make sure if theres no index or segment that you just push a constant
-
                 machine_code = if segment == "constant" {
                     format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", index = index)
                 } else {
                     format!(
-                        "@{segment}\nD=M\n@{index}\nD=D+A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
+                        "@{segment}\nD=M\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
                         segment = segment,
                         index = index,
                     )
@@ -247,7 +253,7 @@ impl CodeWriter {
 
             "pop" => {
                 machine_code = format!(
-                    "@{segment}\nD=M\n@{index}\nD=D+A\n@R12\nM=D\n@SP\nAM=M-1\nD=M\n@R12\nA=M\nM=D\n",
+                    "@{segment}\nD=A\n@{index}\nD=D+A\n@R12\nM=D\n@SP\nAM=M-1\nD=M\n@R12\nA=M\nM=D\n",
                     segment = segment,
                     index = index
                 );
