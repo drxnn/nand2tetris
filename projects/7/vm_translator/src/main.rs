@@ -23,7 +23,7 @@ fn main() -> io::Result<()> {
         let command_type = parser.command_type();
         println!(
             "current line is:, {}",
-            parser.current.as_ref().unwrap_or(&"default".to_string())
+            parser.current.as_ref().unwrap_or(&"".to_string())
         );
 
         // uncluster this later
@@ -49,6 +49,10 @@ fn main() -> io::Result<()> {
 
             let index = index_str.parse::<i16>().ok().unwrap();
 
+            println!(
+                "THE command name is:{}. The segment is:{}. The index is{}.",
+                command_name, segment, index
+            );
             code_writer.write_push_pop(command_name, segment, index);
         };
         parser.advance();
@@ -193,8 +197,8 @@ impl CodeWriter {
         match command {
             "not" => machine_code.push_str("@SP\nA=M-1\nM=!M\n"),
             "neg" => machine_code.push_str("@SP\nA=M-1\nM=-M\n"),
-            "add" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D+M\nM=D\n@SP\nD=M-1\nM=D\n"),
-            "sub" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=M-D\nM=D\n@SP\nD=M-1\nM=D\n"),
+            "add" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D+M\nM=D\nD=A+1\n@SP\nM=D\n"),
+            "sub" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=M-D\nM=D\nD=A+1\n@SP\nM=D\n"),
             "and" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D&M\nM=D\n@SP\nD=M-1\nM=D\n"),
             "or" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D|M\nM=D\n@SP\nD=M-1\nM=D\n"),
             "eq" => {
@@ -233,18 +237,21 @@ impl CodeWriter {
             ("pointer", 0) => "THIS",
             ("pointer", 1) => "THIS",
             ("this", _) => "THIS",
-            ("that", _) => "THIS",
+            ("that", _) => "THAT",
             ("argument", _) => "ARG",
             (s, _) => s,
         };
         let mut machine_code = String::from("");
         match command {
             "push" => {
+                println!("the segment is, {}", segment);
                 machine_code = if segment == "constant" {
                     format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", index = index)
+                } else if segment == "THIS" || segment == "THAT" {
+                    format!("@{segment}\nD=A\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n")
                 } else {
                     format!(
-                        "@{segment}\nD=M\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
+                        "@{segment}\nD=A\n@{index}\nD=D+A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
                         segment = segment,
                         index = index,
                     )
@@ -253,7 +260,7 @@ impl CodeWriter {
 
             "pop" => {
                 machine_code = format!(
-                    "@{segment}\nD=A\n@{index}\nD=D+A\n@R12\nM=D\n@SP\nAM=M-1\nD=M\n@R12\nA=M\nM=D\n",
+                    "@{segment}\nD=A\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n",
                     segment = segment,
                     index = index
                 );
