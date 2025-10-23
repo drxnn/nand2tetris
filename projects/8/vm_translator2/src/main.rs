@@ -1,0 +1,353 @@
+/*  Notes:
+-- return command interpretation: redirect the programs execution to the command following
+the command that called the current running function. So have the Vm save the address of the command
+that comes after the called function, then retrieve this address just before the called function ends.
+So push address just before the function is called and pop it when the function "returns"
+-- local variables should only be stored in memory across a functions lifetime(the time its active),
+then free the local storage slots.
+-- when I call a function, first thing to do is push the return address on the stack(meaning the label below the f call). then push LCL, then push ARG
+then push THIS, push THAT.
+Then reposition ARG. ARG = SP - 5 - n.
+Then reposition LCL. LCL = SP
+Finally we do: goto functionName
+And then we generate a label for the return address: (returnAddress)
+    */
+#![allow(unused)]
+use std::fmt::format;
+use std::fs::{self, File, OpenOptions};
+use std::i16;
+
+use std::io::{BufWriter, Write};
+use std::path::PathBuf;
+use std::{env, io};
+
+#[allow(dead_code)]
+fn main() -> io::Result<()> {
+    let mut code_writer = CodeWriter::new();
+
+    let mut args = env::args();
+    args.next();
+
+    let file_name = args.next().expect("Please provide a filename as argument");
+    let buffer = fs::read_to_string(file_name)?;
+
+    let mut parser = Parser::new(&buffer);
+
+    for i in 0..=parser.lines.len() {
+        let command_type = parser.command_type();
+
+        // uncluster this later
+        if command_type == VMCOMMAND::CArithmetic {
+            let command_arg = parser.current.as_ref().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "missing command arg")
+            })?;
+            code_writer.write_arithmetic(&command_arg);
+        } else if command_type == VMCOMMAND::CPop || command_type == VMCOMMAND::CPush {
+            let command_arg = parser.current.as_ref().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "missing command arg")
+            })?;
+            let mut command_iter = command_arg.split_whitespace();
+            let command_name = command_iter.next().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "missing command name")
+            })?;
+            let segment = command_iter.next().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "missing command name")
+            })?;
+            let index_str = command_iter
+                .next()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing index"))?;
+
+            let index = index_str.parse::<i16>().ok().unwrap();
+
+            println!(
+                "THE command name is:{}. The segment is:{}. The index is{}.",
+                command_name, segment, index
+            );
+            code_writer.write_push_pop(command_name, segment, index);
+        };
+        parser.advance();
+    }
+
+    code_writer.close()?;
+    Ok(())
+}
+
+#[derive(PartialEq, Debug)]
+enum VMCOMMAND {
+    CArithmetic,
+    CPush,
+    CPop,
+    CLabel,
+    CGoto,
+    CIf,
+    CFunction,
+    CReturn,
+    CCall,
+}
+
+struct Parser {
+    lines: Vec<String>,
+    pos: usize,
+    current: Option<String>,
+}
+
+impl Parser {
+    fn new(file: &str) -> Self {
+        let mut lines = Vec::new();
+
+        for line in file.lines() {
+            let sanitized_line = line.split("//").next().unwrap_or("").trim();
+            if !sanitized_line.is_empty() {
+                lines.push(sanitized_line.to_string());
+            }
+        }
+
+        Self {
+            lines,
+            pos: 0,
+            current: None,
+        }
+    }
+    fn has_more_commands(&self) -> bool {
+        self.pos < self.lines.len()
+    }
+
+    fn advance(&mut self) {
+        if self.has_more_commands() {
+            let temp = self.lines[self.pos].clone();
+            self.current = Some(temp);
+            self.pos += 1;
+        } else {
+            self.current = None;
+        }
+    }
+
+    fn command_type(&self) -> VMCOMMAND {
+        match &self.current {
+            Some(c) if c.contains("pop") => VMCOMMAND::CPop,
+            Some(c) if c.contains("push") => VMCOMMAND::CPush,
+            Some(c)
+                if ["add", "sub", "lt", "eq", "gt", "and", "or", "not", "neg"]
+                    .iter()
+                    .any(|&x| c.contains(x)) =>
+            {
+                VMCOMMAND::CArithmetic
+            }
+            Some(c) if c.starts_with("function") => VMCOMMAND::CFunction,
+            Some(c) if c.starts_with("label") => VMCOMMAND::CLabel,
+            Some(c) if c.starts_with("if-goto") => VMCOMMAND::CIf,
+            Some(c) if c.starts_with("goto") => VMCOMMAND::CGoto,
+            Some(c) if c.starts_with("call") => VMCOMMAND::CCall,
+            Some(c) if c.starts_with("return") => VMCOMMAND::CReturn,
+            Some(_) => unreachable!("All cases should be handled"),
+            None => unreachable!("unknown command, command type has to exist"),
+        }
+    }
+
+    fn arg_one(&self) -> Option<String> {
+        if self.command_type() == VMCOMMAND::CArithmetic {
+            self.current.clone()
+        } else if self.command_type() == VMCOMMAND::CReturn {
+            None
+        } else {
+            self.current
+                .as_ref()
+                .and_then(|x| x.split_whitespace().nth(1))
+                .map(|x| x.to_string())
+        }
+    }
+    fn arg_two(&self) -> Option<i16> {
+        let ct = self.command_type();
+        match ct {
+            VMCOMMAND::CCall | VMCOMMAND::CFunction | VMCOMMAND::CPop | VMCOMMAND::CPush => {
+                let s = self.current.as_ref()?;
+                s.split_whitespace()
+                    .nth(2)
+                    .and_then(|x| x.parse::<i16>().ok())
+            }
+            _ => None,
+        }
+    }
+}
+
+struct CodeWriter {
+    file: Option<BufWriter<File>>,
+    current_file: Option<String>,
+    label_index: usize,
+}
+
+impl CodeWriter {
+    fn new() -> Self {
+        let file = OpenOptions::new()
+            .read(true)
+            .append(true)
+            .write(true)
+            .create(true)
+            .open("output.asm")
+            .unwrap();
+
+        Self {
+            file: Some(BufWriter::new(file)),
+            current_file: None,
+            label_index: 0,
+        }
+    }
+
+    fn write_init(&mut self) -> io::Result<()> {
+        let asm_to_write = format!("@256\nD=A\n@SP\nM=D\n");
+        self.file
+            .as_mut()
+            .unwrap()
+            .write_all(asm_to_write.as_bytes())?;
+        self.file.as_mut().unwrap().flush()?;
+        // self.write_call("Sys.init", 0); // uncomment later
+        Ok(())
+    }
+    fn write_label(&mut self, f_name: &str, label: &str) -> io::Result<()> {
+        let asm_to_write = format!("({}${})", f_name, label);
+        self.file
+            .as_mut()
+            .unwrap()
+            .write_all(asm_to_write.as_bytes())?;
+        self.file.as_mut().unwrap().flush()?;
+
+        Ok(())
+    }
+    fn write_goto(&mut self, label: &str) -> io::Result<()> {
+        let asm_to_write = format!("@{label}\n0;jump\n");
+        self.file
+            .as_mut()
+            .unwrap()
+            .write_all(asm_to_write.as_bytes())?;
+        self.file.as_mut().unwrap().flush()?;
+
+        Ok(())
+    }
+    fn write_if(&mut self, label: &str) -> io::Result<()> {
+        let asm_to_write = format!("@SP\nAM=M-1\nD=M\n@{label}\nD;JNE\n", label = label);
+        self.file
+            .as_mut()
+            .unwrap()
+            .write_all(asm_to_write.as_bytes())?;
+        self.file.as_mut().unwrap().flush()?;
+
+        Ok(())
+    }
+    fn write_call(function_name: &str, n_args: i16) {
+        unimplemented!()
+    }
+    fn write_return() {
+        todo!()
+    }
+    fn write_function() {
+        todo!()
+    }
+    fn set_file_name(&mut self, fname: &str) {
+        self.current_file = Some(fname.to_string());
+    }
+    fn write_arithmetic(&mut self, command: &str) -> io::Result<()> {
+        let writer = self
+            .file
+            .as_mut()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "output file not opened "))?;
+
+        let mut machine_code = String::from("");
+
+        let mut true_label = String::from("TRUE_");
+        let mut end_label = String::from("END_");
+
+        true_label.push_str(command);
+        true_label.push_str(&self.label_index.to_string());
+        end_label.push_str(command);
+        end_label.push_str(&self.label_index.to_string());
+
+        match command {
+            "not" => machine_code.push_str("@SP\nA=M-1\nM=!M\n"),
+            "neg" => machine_code.push_str("@SP\nA=M-1\nM=-M\n"),
+            "add" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D+M\nM=D\nD=A+1\n@SP\nM=D\n"),
+            "sub" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=M-D\nM=D\nD=A+1\n@SP\nM=D\n"),
+            "and" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D&M\nM=D\nD=A+1\n@SP\nM=D\n"),
+            "or" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D|M\nM=D\nD=A+1\n@SP\nM=D\n"),
+            "eq" => {
+                machine_code = format!(
+                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JEQ\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})\n"
+                )
+            }
+
+            "lt" => {
+                machine_code = format!(
+                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JLT\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})\n"
+                )
+            }
+
+            "gt" => {
+                machine_code = format!(
+                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JGT\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})\n"
+                )
+            }
+
+            _ => panic!("Unknown arithmetic command"),
+        };
+
+        self.label_index += 1;
+
+        self.file
+            .as_mut()
+            .unwrap()
+            .write_all(machine_code.as_bytes())?;
+        self.file.as_mut().unwrap().flush()?;
+
+        Ok(())
+    }
+    fn write_push_pop(&mut self, command: &str, segment: &str, index: i16) -> io::Result<()> {
+        let segment = match (segment, index) {
+            ("pointer", 0) => "THIS",
+            ("pointer", 1) => "THIS",
+            ("this", _) => "THIS",
+            ("that", _) => "THAT",
+            ("argument", _) => "ARG",
+            (s, _) => s,
+        };
+        let mut machine_code = String::from("");
+        match command {
+            "push" => {
+                println!("the segment is, {}", segment);
+                machine_code = if segment == "constant" {
+                    format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", index = index)
+                } else if segment == "THIS" || segment == "THAT" {
+                    format!("@{segment}\nD=A\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n")
+                } else {
+                    format!(
+                        "@{segment}\nD=A\n@{index}\nD=D+A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
+                        segment = segment,
+                        index = index,
+                    )
+                };
+            }
+
+            "pop" => {
+                machine_code = format!(
+                    "@{segment}\nD=A\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n",
+                    segment = segment,
+                    index = index
+                );
+            }
+            _ => todo!(),
+        };
+
+        self.file
+            .as_mut()
+            .unwrap()
+            .write_all(machine_code.as_bytes())?;
+        self.file.as_mut().unwrap().flush()?;
+
+        Ok(())
+    }
+
+    fn close(&mut self) -> io::Result<()> {
+        if let Some(mut w) = self.file.take() {
+            w.flush()?;
+        }
+        Ok(())
+    }
+}
