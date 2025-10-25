@@ -237,7 +237,7 @@ impl CodeWriter {
         let return_label = self.generate_return_label(f_name);
         let asm_to_write = format!(
             r#"
-            @{return_label} // referenced here, declare at the end
+            @{return_label}
             D=A
             @SP
             A=M
@@ -272,17 +272,17 @@ impl CodeWriter {
             M=D
             @SP
             M=M+1
-            D=M // D = Sp right now
+            D=M 
             @{n_args}
-            D=D-A // D = Sp - n_args
+            D=D-A 
             @5
-            D=D-A // (Sp-n_args) - 5 //
+            D=D-A 
             @ARG
-            M=D // ARG = arg 0 of callee
+            M=D 
             @SP
             D=M
             @LCL
-            M=D // LCL holds the starting address of the callee's LCL's
+            M=D
             @{f_name}
             0;JMP
             ({return_label})
@@ -297,14 +297,62 @@ impl CodeWriter {
 
         Ok(())
     }
-    fn generate_return_label(&mut self, f_name: &str) -> String {
-        let label_to_return = format!("{f_name}$ret.{}", self.label_index, f_name = f_name);
-        self.label_index += 1;
+    fn write_return(&mut self) -> io::Result<()> {
+        let asm_to_write = format!(
+            r#"
+        @LCL
+        D=M
+        @R13 
+        M=D 
+        @5
+        D=D-A 
+        A=D
+        D=M
+        @R14
+        M=D 
+        @SP
+        AM=M-1
+        D=M 
+        @ARG
+        A=M 
+        M=D 
+        @ARG
+        D=M 
+        @SP
+        M=D+1 
+        @13
+        AM=M-1
+        D=M
+        @THAT
+        M=D 
+        @13
+        AM=M-1
+        D=M
+        @THIS
+        M=D  
+        @13
+        AM=M-1
+        D=M
+        @ARG
+        M=D 
+        @13
+        AM=M-1
+        D=M
+        @LCL
+        M=D 
+        @R14
+        A=M
+        0;JMP
+        "#
+        );
 
-        label_to_return
-    }
-    fn write_return() {
-        todo!()
+        self.file
+            .as_mut()
+            .unwrap()
+            .write_all(asm_to_write.as_bytes())?;
+        self.file.as_mut().unwrap().flush()?;
+
+        Ok(())
     }
     fn write_function(&mut self, f_name: &str, n_locals: i16) -> io::Result<()> {
         let mut push_locals = String::new();
@@ -426,6 +474,13 @@ impl CodeWriter {
         self.file.as_mut().unwrap().flush()?;
 
         Ok(())
+    }
+
+    fn generate_return_label(&mut self, f_name: &str) -> String {
+        let label_to_return = format!("{f_name}$ret.{}", self.label_index, f_name = f_name);
+        self.label_index += 1;
+
+        label_to_return
     }
 
     fn close(&mut self) -> io::Result<()> {
