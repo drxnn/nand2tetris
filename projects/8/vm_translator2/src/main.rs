@@ -1,71 +1,142 @@
-/*  Notes:
--- return command interpretation: redirect the programs execution to the command following
-the command that called the current running function. So have the Vm save the address of the command
-that comes after the called function, then retrieve this address just before the called function ends.
-So push address just before the function is called and pop it when the function "returns"
--- local variables should only be stored in memory across a functions lifetime(the time its active),
-then free the local storage slots.
--- when I call a function, first thing to do is push the return address on the stack(meaning the label below the f call). then push LCL, then push ARG
-then push THIS, push THAT.
-Then reposition ARG. ARG = SP - 5 - n.
-Then reposition LCL. LCL = SP
-Finally we do: goto functionName
-And then we generate a label for the return address: (returnAddress)
-    */
 #![allow(unused)]
 use std::fmt::format;
 use std::fs::{self, File, OpenOptions};
 use std::i16;
 
 use std::io::{BufWriter, Write};
+use std::path::Path;
 use std::path::PathBuf;
 use std::{env, io};
 
 #[allow(dead_code)]
-fn main() -> io::Result<()> {
-    let mut code_writer = CodeWriter::new();
 
-    let mut args = env::args();
-    args.next();
-
-    let file_name = args.next().expect("Please provide a filename as argument");
+fn process_file(file_name: &Path, mut code_writer: &mut CodeWriter) -> io::Result<()> {
+    println!("beginning of process_file");
     let buffer = fs::read_to_string(file_name)?;
 
     let mut parser = Parser::new(&buffer);
+    let lines: Vec<String> = parser.lines.clone();
+    for line in lines.iter() {
+        println!("buffer is: {}", line);
+    }
 
-    for i in 0..=parser.lines.len() {
+    for i in 0..parser.lines.len() {
         let command_type = parser.command_type();
 
-        // uncluster this later
-        if command_type == VMCOMMAND::CArithmetic {
-            let command_arg = parser.current.as_ref().ok_or_else(|| {
-                io::Error::new(io::ErrorKind::InvalidInput, "missing command arg")
-            })?;
-            code_writer.write_arithmetic(&command_arg);
-        } else if command_type == VMCOMMAND::CPop || command_type == VMCOMMAND::CPush {
-            let command_arg = parser.current.as_ref().ok_or_else(|| {
-                io::Error::new(io::ErrorKind::InvalidInput, "missing command arg")
-            })?;
-            let mut command_iter = command_arg.split_whitespace();
-            let command_name = command_iter.next().ok_or_else(|| {
-                io::Error::new(io::ErrorKind::InvalidInput, "missing command name")
-            })?;
-            let segment = command_iter.next().ok_or_else(|| {
-                io::Error::new(io::ErrorKind::InvalidInput, "missing command name")
-            })?;
-            let index_str = command_iter
-                .next()
-                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing index"))?;
+        match command_type {
+            VMCOMMAND::CArithmetic => {
+                let command_arg = parser.current.as_ref().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "missing command arg")
+                })?;
+                code_writer.write_arithmetic(&command_arg);
+            }
+            VMCOMMAND::CPop | VMCOMMAND::CPush => {
+                let command_arg = parser.current.as_ref().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "missing command arg")
+                })?;
+                let mut command_iter = command_arg.split_whitespace();
+                let command_name = command_iter.next().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "missing command name")
+                })?;
+                let segment = command_iter.next().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "missing command name")
+                })?;
+                let index_str = command_iter
+                    .next()
+                    .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing index"))?;
 
-            let index = index_str.parse::<i16>().ok().unwrap();
+                let index = index_str.parse::<i16>().ok().unwrap();
 
-            println!(
-                "THE command name is:{}. The segment is:{}. The index is{}.",
-                command_name, segment, index
-            );
-            code_writer.write_push_pop(command_name, segment, index);
-        };
+                println!(
+                    "THE command name is:{}. The segment is:{}. The index is{}.",
+                    command_name, segment, index
+                );
+                code_writer.write_push_pop(command_name, segment, index);
+            }
+            VMCOMMAND::CLabel => {
+                let label = parser.arg_two().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "missing label name")
+                })?;
+
+                code_writer.write_label(label);
+            }
+            VMCOMMAND::CFunction => {
+                let f_name = parser.arg_one().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "missing function name")
+                })?;
+
+                let n_locals: i16 = parser
+                    .arg_two()
+                    .ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidInput, "missing numLocals in function")
+                    })?
+                    .parse()
+                    .map_err(|_| {
+                        io::Error::new(io::ErrorKind::InvalidInput, "invalid numLocals value")
+                    })?;
+                code_writer.write_function(&f_name, n_locals);
+            }
+            VMCOMMAND::CCall => {
+                let n_args: i16 = parser
+                    .arg_two()
+                    .ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidInput, "missing numLocals in function")
+                    })?
+                    .parse()
+                    .map_err(|_| {
+                        io::Error::new(io::ErrorKind::InvalidInput, "invalid numLocals value")
+                    })?;
+
+                let callee = parser.arg_one().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "missing function callee name")
+                })?;
+
+                code_writer.write_call(callee, n_args);
+            }
+            VMCOMMAND::CReturn => {
+                code_writer.write_return();
+            }
+            VMCOMMAND::CIf => {
+                let label = parser.arg_two().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "missing label name")
+                })?;
+                code_writer.write_if_goto(label);
+            }
+            VMCOMMAND::CGoto => {
+                let label = parser.arg_two().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "missing label name")
+                })?;
+                code_writer.write_goto(label);
+            }
+            VMCOMMAND::None => {}
+        }
+
         parser.advance();
+    }
+    Ok(())
+}
+fn main() -> io::Result<()> {
+    let mut code_writer = CodeWriter::new()?;
+
+    let mut args = env::args();
+    args.next();
+    // if a file is provided, do file, if a folder is provided, do every file in the folder one by one
+
+    let input_name = args.next().expect("Please provide a filename as argument");
+    let input_path = PathBuf::from(input_name);
+    if input_path.is_file() {
+        println!("this shouldnt print");
+        process_file(&input_path, &mut code_writer);
+    } else if input_path.is_dir() {
+        for entry in input_path.read_dir().expect("read_dir call failed") {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                println!("we are in file: {:?}", path);
+                process_file(&path, &mut code_writer);
+
+                println!("after the process_file function ran on file {:?}", path);
+            }
+        }
     }
 
     code_writer.close()?;
@@ -83,6 +154,7 @@ enum VMCOMMAND {
     CFunction,
     CReturn,
     CCall,
+    None,
 }
 
 struct Parser {
@@ -140,30 +212,33 @@ impl Parser {
             Some(c) if c.starts_with("call") => VMCOMMAND::CCall,
             Some(c) if c.starts_with("return") => VMCOMMAND::CReturn,
             Some(_) => unreachable!("All cases should be handled"),
-            None => unreachable!("unknown command, command type has to exist"),
+            None => VMCOMMAND::None,
         }
     }
 
-    fn arg_one(&self) -> Option<String> {
-        if self.command_type() == VMCOMMAND::CArithmetic {
-            self.current.clone()
-        } else if self.command_type() == VMCOMMAND::CReturn {
-            None
-        } else {
-            self.current
-                .as_ref()
-                .and_then(|x| x.split_whitespace().nth(1))
-                .map(|x| x.to_string())
+    fn arg_one(&self) -> Option<&str> {
+        match self.command_type() {
+            VMCOMMAND::CArithmetic => self
+                .current
+                .as_deref()
+                .and_then(|s| s.split_whitespace().next()),
+            VMCOMMAND::CReturn => None,
+            _ => self
+                .current
+                .as_deref()
+                .and_then(|s| s.split_whitespace().nth(1)),
         }
     }
-    fn arg_two(&self) -> Option<i16> {
+    fn arg_two(&self) -> Option<&str> {
         let ct = self.command_type();
         match ct {
             VMCOMMAND::CCall | VMCOMMAND::CFunction | VMCOMMAND::CPop | VMCOMMAND::CPush => {
                 let s = self.current.as_ref()?;
-                s.split_whitespace()
-                    .nth(2)
-                    .and_then(|x| x.parse::<i16>().ok())
+                s.split_whitespace().nth(2).and_then(|x| Some(x))
+            }
+            VMCOMMAND::CIf | VMCOMMAND::CGoto => {
+                let s = self.current.as_ref()?;
+                s.split_whitespace().nth(1).and_then(|x| Some(x))
             }
             _ => None,
         }
@@ -174,10 +249,11 @@ struct CodeWriter {
     file: Option<BufWriter<File>>,
     current_file: Option<String>,
     label_index: usize,
+    current_function: Option<String>,
 }
 
 impl CodeWriter {
-    fn new() -> Self {
+    fn new() -> io::Result<Self> {
         let file = OpenOptions::new()
             .read(true)
             .append(true)
@@ -186,175 +262,208 @@ impl CodeWriter {
             .open("output.asm")
             .unwrap();
 
-        Self {
+        let mut writer = Self {
             file: Some(BufWriter::new(file)),
             current_file: None,
             label_index: 0,
-        }
+            current_function: None,
+        };
+        writer.write_init()?;
+
+        Ok(writer)
     }
 
     fn write_init(&mut self) -> io::Result<()> {
-        let asm_to_write = format!("@256\nD=A\n@SP\nM=D\n");
-        self.file
-            .as_mut()
-            .unwrap()
-            .write_all(asm_to_write.as_bytes())?;
-        self.file.as_mut().unwrap().flush()?;
-        // self.write_call("Sys.init", 0); // uncomment later
+        let asm_to_write = format!(
+            r#"
+@256
+D=A
+@SP
+M=D"#
+        );
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(asm_to_write.as_bytes())?;
+            f.flush()?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::Other, "no output file"));
+        }
+
+        self.write_call("Sys.init", 0);
+
         Ok(())
     }
-    fn write_label(&mut self, f_name: &str, label: &str) -> io::Result<()> {
-        let asm_to_write = format!("({}${})", f_name, label);
-        self.file
-            .as_mut()
-            .unwrap()
-            .write_all(asm_to_write.as_bytes())?;
-        self.file.as_mut().unwrap().flush()?;
+    fn write_label(&mut self, label: &str) -> io::Result<()> {
+        let f_name = match self.current_function.as_deref() {
+            Some(n) => n,
+            None => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "label is outside a function",
+                ));
+            }
+        };
+        let asm_to_write = format!("({}${})\n", f_name, label);
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(asm_to_write.as_bytes())?;
+            f.flush()?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::Other, "no output file"));
+        }
 
         Ok(())
     }
     fn write_goto(&mut self, label: &str) -> io::Result<()> {
         let asm_to_write = format!("@{label}\n0;jump\n");
-        self.file
-            .as_mut()
-            .unwrap()
-            .write_all(asm_to_write.as_bytes())?;
-        self.file.as_mut().unwrap().flush()?;
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(asm_to_write.as_bytes())?;
+            f.flush()?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::Other, "no output file"));
+        }
 
         Ok(())
     }
     fn write_if_goto(&mut self, label: &str) -> io::Result<()> {
         let asm_to_write = format!("@SP\nAM=M-1\nD=M\n@{label}\nD;JNE\n", label = label);
-        self.file
-            .as_mut()
-            .unwrap()
-            .write_all(asm_to_write.as_bytes())?;
-        self.file.as_mut().unwrap().flush()?;
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(asm_to_write.as_bytes())?;
+            f.flush()?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::Other, "no output file"));
+        }
 
         Ok(())
     }
-    fn write_call(&mut self, f_name: &str, n_args: i16) -> io::Result<()> {
-        let return_label = self.generate_return_label(f_name);
+    fn write_call(&mut self, callee: &str, n_args: i16) -> io::Result<()> {
+        let caller = self
+            .current_function
+            .as_deref()
+            .unwrap_or("BOOT")
+            .to_string();
+        let return_label = self.generate_return_label(&caller);
         let asm_to_write = format!(
             r#"
-            @{return_label}
-            D=A
-            @SP
-            A=M
-            M=D
-            @SP
-            M=M+1
-            @LCL
-            D=M
-            @SP
-            A=M
-            M=D
-            @SP
-            M=M+1
-            @ARG
-            D=M
-            @SP
-            A=M
-            M=D
-            @SP
-            M=M+1
-            @THIS
-            D=M
-            @SP
-            A=M
-            M=D
-            @SP
-            M=M+1
-            @THAT
-            D=M
-            @SP
-            A=M
-            M=D
-            @SP
-            M=M+1
-            D=M 
-            @{n_args}
-            D=D-A 
-            @5
-            D=D-A 
-            @ARG
-            M=D 
-            @SP
-            D=M
-            @LCL
-            M=D
-            @{f_name}
-            0;JMP
-            ({return_label})
+@{return_label}
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@LCL
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@ARG
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@THIS
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@THAT
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+D=M 
+@{n_args}
+D=D-A 
+@5
+D=D-A 
+@ARG
+M=D 
+@SP
+D=M
+@LCL
+M=D
+@{callee}
+0;JMP
+({return_label})
         "#
         );
 
-        self.file
-            .as_mut()
-            .unwrap()
-            .write_all(asm_to_write.as_bytes())?;
-        self.file.as_mut().unwrap().flush()?;
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(asm_to_write.as_bytes())?;
+            f.flush()?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::Other, "no output file"));
+        }
 
         Ok(())
     }
     fn write_return(&mut self) -> io::Result<()> {
         let asm_to_write = format!(
             r#"
-        @LCL
-        D=M
-        @R13 
-        M=D 
-        @5
-        D=D-A 
-        A=D
-        D=M
-        @R14
-        M=D 
-        @SP
-        AM=M-1
-        D=M 
-        @ARG
-        A=M 
-        M=D 
-        @ARG
-        D=M 
-        @SP
-        M=D+1 
-        @13
-        AM=M-1
-        D=M
-        @THAT
-        M=D 
-        @13
-        AM=M-1
-        D=M
-        @THIS
-        M=D  
-        @13
-        AM=M-1
-        D=M
-        @ARG
-        M=D 
-        @13
-        AM=M-1
-        D=M
-        @LCL
-        M=D 
-        @R14
-        A=M
-        0;JMP
-        "#
+@LCL
+D=M
+@R13 
+M=D 
+@5
+D=D-A 
+A=D
+D=M
+@R14
+M=D 
+@SP
+AM=M-1
+D=M 
+@ARG
+A=M 
+M=D 
+@ARG
+D=M 
+@SP
+M=D+1 
+@R13
+AM=M-1
+D=M
+@THAT
+M=D 
+@R13
+AM=M-1
+D=M
+@THIS
+M=D  
+@R13
+AM=M-1
+D=M
+@ARG
+M=D 
+@R13
+AM=M-1
+D=M
+@LCL
+M=D 
+@R14
+A=M
+0;JMP
+"#
         );
 
-        self.file
-            .as_mut()
-            .unwrap()
-            .write_all(asm_to_write.as_bytes())?;
-        self.file.as_mut().unwrap().flush()?;
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(asm_to_write.as_bytes())?;
+            f.flush()?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::Other, "no output file"));
+        }
 
         Ok(())
     }
     fn write_function(&mut self, f_name: &str, n_locals: i16) -> io::Result<()> {
+        self.current_function = Some(f_name.to_string());
         let mut push_locals = String::new();
 
         for _i in 0..n_locals {
@@ -366,11 +475,12 @@ impl CodeWriter {
             f_name = f_name,
             push_locals = push_locals,
         );
-        self.file
-            .as_mut()
-            .unwrap()
-            .write_all(asm_to_write.as_bytes())?;
-        self.file.as_mut().unwrap().flush()?;
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(asm_to_write.as_bytes())?;
+            f.flush()?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::Other, "no output file"));
+        }
 
         Ok(())
     }
@@ -434,7 +544,7 @@ impl CodeWriter {
     fn write_push_pop(&mut self, command: &str, segment: &str, index: i16) -> io::Result<()> {
         let segment = match (segment, index) {
             ("pointer", 0) => "THIS",
-            ("pointer", 1) => "THIS",
+            ("pointer", 1) => "THAT",
             ("this", _) => "THIS",
             ("that", _) => "THAT",
             ("argument", _) => "ARG",
@@ -464,7 +574,7 @@ impl CodeWriter {
                     index = index
                 );
             }
-            _ => todo!(),
+            _ => (),
         };
 
         self.file
