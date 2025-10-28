@@ -48,7 +48,7 @@ fn process_file(file_name: &Path, mut code_writer: &mut CodeWriter) -> io::Resul
                 let index = index_str.parse::<i16>().ok().unwrap();
 
                 println!(
-                    "THE command name is:{}. The segment is:{}. The index is{}.",
+                    "THE command name is: {}. The segment is: {}. The index is {}.",
                     command_name, segment, index
                 );
                 code_writer.write_push_pop(command_name, segment, index);
@@ -125,7 +125,6 @@ fn main() -> io::Result<()> {
     let input_name = args.next().expect("Please provide a filename as argument");
     let input_path = PathBuf::from(input_name);
     if input_path.is_file() {
-        println!("this shouldnt print");
         process_file(&input_path, &mut code_writer);
     } else if input_path.is_dir() {
         for entry in input_path.read_dir().expect("read_dir call failed") {
@@ -134,7 +133,7 @@ fn main() -> io::Result<()> {
                 println!("we are in file: {:?}", path);
                 process_file(&path, &mut code_writer);
 
-                println!("after the process_file function ran on file {:?}", path);
+                println!("after the process_file function ran on path {:?}", path);
             }
         }
     }
@@ -313,7 +312,7 @@ M=D"#
         Ok(())
     }
     fn write_goto(&mut self, label: &str) -> io::Result<()> {
-        let asm_to_write = format!("@{label}\n0;jump\n");
+        let asm_to_write = format!("@{label}\n0;JMP\n");
         if let Some(f) = self.file.as_mut() {
             f.write_all(asm_to_write.as_bytes())?;
             f.flush()?;
@@ -425,8 +424,9 @@ A=M
 M=D 
 @ARG
 D=M 
+D=D+1
 @SP
-M=D+1 
+M=D
 @R13
 AM=M-1
 D=M
@@ -551,13 +551,76 @@ A=M
             (s, _) => s,
         };
         let mut machine_code = String::from("");
+        /*
+
+                push static i -> Push contents of static variable i @Foo.i → D=M, then push D
+
+
+
+        pop static i	Pop top of stack into static variable i	@SP → M=M-1, D=M, @Foo.i → M=D */
+
         match command {
             "push" => {
+                match segment {
+                    "constant" => {
+                        machine_code =
+                            format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", index = index);
+                    }
+                    "static" => {
+                        let f_name = self.current_function.as_ref().unwrap();
+                        machine_code = format!(
+                            "@{f_name}.{index}\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
+                            f_name = f_name,
+                            index = index
+                        );
+                    }
+                    "THIS" | "this" => {
+                        machine_code = format!(
+                            "@THIS\nD=M\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
+                            index = index
+                        );
+                    }
+                    "THAT" | "that" => {
+                        machine_code = format!(
+                            "@THAT\nD=M\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
+                            index = index
+                        );
+                    }
+
+                    "ARG" => {
+                        machine_code = format!(
+                            "@ARG\nD=M\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
+                            index = index
+                        )
+                    }
+                    "pointer" => {
+                        machine_code = format!(
+                            "@3\nD=A\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
+                            index = index,
+                        )
+                    }
+                    "temp" => {
+                        machine_code = format!(
+                            "@R5\nD=A\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
+                            index = index,
+                        )
+                    }
+                    "local" => {
+                        machine_code = format!(
+                            "@LCL\nD=M\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
+                            index = index,
+                        )
+                    }
+                    _ => unreachable!(),
+                };
                 println!("the segment is, {}", segment);
                 machine_code = if segment == "constant" {
                     format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", index = index)
                 } else if segment == "THIS" || segment == "THAT" {
-                    format!("@{segment}\nD=A\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n")
+                    format!("@{segment}\nD=M\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n")
+                } else if segment == "static" {
+                    let f_name = self.current_function.as_ref().unwrap();
+                    format!("@{f_name}.{index}\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n")
                 } else {
                     format!(
                         "@{segment}\nD=A\n@{index}\nD=D+A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
@@ -567,13 +630,21 @@ A=M
                 };
             }
 
-            "pop" => {
-                machine_code = format!(
-                    "@{segment}\nD=A\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n",
-                    segment = segment,
-                    index = index
-                );
-            }
+            "pop" => match segment {
+                "static" => {
+                    let f_name = self.current_function.as_ref().unwrap();
+                    machine_code = format!(
+                        "@{f_name}.{index}\nD=M\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                    )
+                }
+                _ => {
+                    machine_code = format!(
+                        "@{segment}\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n",
+                        segment = segment,
+                        index = index
+                    )
+                }
+            },
             _ => (),
         };
 
