@@ -533,61 +533,48 @@ A=M
 
         self.label_index += 1;
 
-        self.file
-            .as_mut()
-            .unwrap()
-            .write_all(machine_code.as_bytes())?;
-        self.file.as_mut().unwrap().flush()?;
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(machine_code.as_bytes())?;
+            f.flush()?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::Other, "no output file"));
+        }
 
         Ok(())
     }
     fn write_push_pop(&mut self, command: &str, segment: &str, index: i16) -> io::Result<()> {
-        let segment = match (segment, index) {
-            ("pointer", 0) => "THIS",
-            ("pointer", 1) => "THAT",
-            ("this", _) => "THIS",
-            ("that", _) => "THAT",
-            ("argument", _) => "ARG",
-            (s, _) => s,
-        };
+        let segment = segment.to_lowercase();
         let mut machine_code = String::from("");
-        /*
-
-                push static i -> Push contents of static variable i @Foo.i → D=M, then push D
-
-
-
-        pop static i	Pop top of stack into static variable i	@SP → M=M-1, D=M, @Foo.i → M=D */
 
         match command {
             "push" => {
-                match segment {
+                match segment.as_str() {
                     "constant" => {
                         machine_code =
                             format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", index = index);
                     }
                     "static" => {
-                        let f_name = self.current_function.as_ref().unwrap();
+                        let f_name = self.current_file.as_ref().unwrap();
                         machine_code = format!(
                             "@{f_name}.{index}\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
                             f_name = f_name,
                             index = index
                         );
                     }
-                    "THIS" | "this" => {
+                    "this" => {
                         machine_code = format!(
                             "@THIS\nD=M\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
                             index = index
                         );
                     }
-                    "THAT" | "that" => {
+                    "that" => {
                         machine_code = format!(
                             "@THAT\nD=M\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
                             index = index
                         );
                     }
 
-                    "ARG" => {
+                    "arg" => {
                         machine_code = format!(
                             "@ARG\nD=M\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
                             index = index
@@ -611,48 +598,64 @@ A=M
                             index = index,
                         )
                     }
-                    _ => unreachable!(),
-                };
-                println!("the segment is, {}", segment);
-                machine_code = if segment == "constant" {
-                    format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", index = index)
-                } else if segment == "THIS" || segment == "THAT" {
-                    format!("@{segment}\nD=M\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n")
-                } else if segment == "static" {
-                    let f_name = self.current_function.as_ref().unwrap();
-                    format!("@{f_name}.{index}\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n")
-                } else {
-                    format!(
-                        "@{segment}\nD=A\n@{index}\nD=D+A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
-                        segment = segment,
-                        index = index,
-                    )
+                    _ => {
+                        panic!("invalid push seg: {}", segment);
+                    }
                 };
             }
 
-            "pop" => match segment {
+            "pop" => match segment.as_str() {
                 "static" => {
-                    let f_name = self.current_function.as_ref().unwrap();
+                    let f_name = self.current_file.as_ref().unwrap();
                     machine_code = format!(
-                        "@{f_name}.{index}\nD=M\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
-                    )
+                        "@{f_name}.{index}\nD=A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                    );
+                }
+                "local" => {
+                    machine_code = format!(
+                        "@LCL\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                    );
+                }
+                "pointer" => {
+                    machine_code = format!(
+                        "@3\nD=A\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                    );
+                }
+                "temp" => {
+                    machine_code = format!(
+                        "@5\nD=A\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                    );
+                }
+                "arg" => {
+                    machine_code = format!(
+                        "@ARG\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                    );
+                }
+                "this" => {
+                    machine_code = format!(
+                        "@THIS\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                    );
+                }
+                "that" => {
+                    machine_code = format!(
+                        "@THAT\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                    );
                 }
                 _ => {
-                    machine_code = format!(
-                        "@{segment}\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n",
-                        segment = segment,
-                        index = index
-                    )
+                    panic!("invalid pop seg: {}", segment);
                 }
             },
-            _ => (),
+            _ => {
+                panic!("invalid command : {}", command);
+            }
         };
 
-        self.file
-            .as_mut()
-            .unwrap()
-            .write_all(machine_code.as_bytes())?;
-        self.file.as_mut().unwrap().flush()?;
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(machine_code.as_bytes())?;
+            f.flush()?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::Other, "no output file"));
+        }
 
         Ok(())
     }
