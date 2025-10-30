@@ -1,3 +1,4 @@
+function Sys.init 0
 push constant 111
 push constant 333
 push constant 888

@@ -15,12 +15,12 @@ fn process_file(file_name: &Path, mut code_writer: &mut CodeWriter) -> io::Resul
     let buffer = fs::read_to_string(file_name)?;
 
     let mut parser = Parser::new(&buffer);
-    let lines: Vec<String> = parser.lines.clone();
-    for line in lines.iter() {
-        println!("buffer is: {}", line);
-    }
+    // let lines: Vec<String> = parser.lines.clone();
+    // for line in lines.iter() {
+    //     println!("buffer is: {}", line);
+    // }
 
-    for i in 0..parser.lines.len() {
+    for i in 0..=parser.lines.len() {
         let command_type = parser.command_type();
 
         match command_type {
@@ -120,20 +120,30 @@ fn main() -> io::Result<()> {
 
     let mut args = env::args();
     args.next();
-    // if a file is provided, do file, if a folder is provided, do every file in the folder one by one
 
     let input_name = args.next().expect("Please provide a filename as argument");
     let input_path = PathBuf::from(input_name);
     if input_path.is_file() {
+        let file_stem = input_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "invalid filename"))?
+            .to_string();
+
+        code_writer.current_file = Some(file_stem);
         process_file(&input_path, &mut code_writer);
     } else if input_path.is_dir() {
         for entry in input_path.read_dir().expect("read_dir call failed") {
             if let Ok(entry) = entry {
                 let path = entry.path();
+                let file_stem = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "invalid filename"))?
+                    .to_string();
+                code_writer.current_file = Some(file_stem);
                 println!("we are in file: {:?}", path);
                 process_file(&path, &mut code_writer);
-
-                println!("after the process_file function ran on path {:?}", path);
             }
         }
     }
@@ -512,19 +522,25 @@ A=M
             "or" => machine_code.push_str("@SP\nA=M-1\nD=M\nA=A-1\nD=D|M\nM=D\nD=A+1\n@SP\nM=D\n"),
             "eq" => {
                 machine_code = format!(
-                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JEQ\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})\n"
+                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JEQ\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})\n",
+                    true_label = true_label,
+                    end_label = end_label
                 )
             }
 
             "lt" => {
                 machine_code = format!(
-                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JLT\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})\n"
+                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JLT\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})\n",
+                    true_label = true_label,
+                    end_label = end_label
                 )
             }
 
             "gt" => {
                 machine_code = format!(
-                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JGT\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})\n"
+                    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@{true_label}\nD;JGT\n@SP\nA=M-1\nM=0\n@{end_label}\n0;JMP\n({true_label})\n@SP\nA=M-1\nM=-1\n({end_label})\n",
+                    true_label = true_label,
+                    end_label = end_label
                 )
             }
 
@@ -544,6 +560,7 @@ A=M
     }
     fn write_push_pop(&mut self, command: &str, segment: &str, index: i16) -> io::Result<()> {
         let segment = segment.to_lowercase();
+        println!("segment is: {}", segment);
         let mut machine_code = String::from("");
 
         match command {
@@ -554,7 +571,12 @@ A=M
                             format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", index = index);
                     }
                     "static" => {
-                        let f_name = self.current_file.as_ref().unwrap();
+                        println!("we are in static seg");
+                        let f_name = self.current_file.as_ref().ok_or_else(|| {
+                            io::Error::new(io::ErrorKind::Other, "no current file")
+                        })?;
+
+                        println!("after f name");
                         machine_code = format!(
                             "@{f_name}.{index}\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
                             f_name = f_name,
@@ -574,7 +596,7 @@ A=M
                         );
                     }
 
-                    "arg" => {
+                    "argument" => {
                         machine_code = format!(
                             "@ARG\nD=M\n@{index}\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
                             index = index
@@ -606,39 +628,51 @@ A=M
 
             "pop" => match segment.as_str() {
                 "static" => {
-                    let f_name = self.current_file.as_ref().unwrap();
+                    let f_name = self
+                        .current_file
+                        .as_ref()
+                        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no current file"))?;
+
                     machine_code = format!(
-                        "@{f_name}.{index}\nD=A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                        "@{f_name}.{index}\nD=A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n",
+                        f_name = f_name,
+                        index = index
                     );
                 }
                 "local" => {
                     machine_code = format!(
-                        "@LCL\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                        "@LCL\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n",
+                        index = index
                     );
                 }
                 "pointer" => {
                     machine_code = format!(
-                        "@3\nD=A\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                        "@3\nD=A\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n",
+                        index = index
                     );
                 }
                 "temp" => {
                     machine_code = format!(
-                        "@5\nD=A\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                        "@5\nD=A\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n",
+                        index = index
                     );
                 }
-                "arg" => {
+                "argument" => {
                     machine_code = format!(
-                        "@ARG\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                        "@ARG\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n",
+                        index = index
                     );
                 }
                 "this" => {
                     machine_code = format!(
-                        "@THIS\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                        "@THIS\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n",
+                        index = index
                     );
                 }
                 "that" => {
                     machine_code = format!(
-                        "@THAT\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n"
+                        "@THAT\nD=M\n@{index}\nD=D+A\n@R15\nM=D\n@SP\nAM=M-1\nD=M\n@R15\nA=M\nM=D\n",
+                        index = index
                     );
                 }
                 _ => {
@@ -650,6 +684,7 @@ A=M
             }
         };
 
+        println!("machine code is: {}", machine_code);
         if let Some(f) = self.file.as_mut() {
             f.write_all(machine_code.as_bytes())?;
             f.flush()?;
