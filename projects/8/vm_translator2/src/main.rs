@@ -15,12 +15,18 @@ fn process_file(file_name: &Path, mut code_writer: &mut CodeWriter) -> io::Resul
     let buffer = fs::read_to_string(file_name)?;
 
     let mut parser = Parser::new(&buffer);
-    // let lines: Vec<String> = parser.lines.clone();
-    // for line in lines.iter() {
-    //     println!("buffer is: {}", line);
-    // }
 
-    for i in 0..=parser.lines.len() {
+    if code_writer.current_function.is_none() {
+        if let Some(file_stem) = code_writer.current_file.clone() {
+            code_writer.current_function = Some(file_stem);
+        }
+    }
+
+    parser.advance();
+    while parser.has_more_commands() {
+        println!("current is: {:?}", parser.current);
+        println!("current file is {:?}", code_writer.current_file);
+        println!("current function is {:?}", code_writer.current_function);
         let command_type = parser.command_type();
 
         match command_type {
@@ -28,7 +34,7 @@ fn process_file(file_name: &Path, mut code_writer: &mut CodeWriter) -> io::Resul
                 let command_arg = parser.current.as_ref().ok_or_else(|| {
                     io::Error::new(io::ErrorKind::InvalidInput, "missing command arg")
                 })?;
-                code_writer.write_arithmetic(&command_arg);
+                code_writer.write_arithmetic(&command_arg)?;
             }
             VMCOMMAND::CPop | VMCOMMAND::CPush => {
                 let command_arg = parser.current.as_ref().ok_or_else(|| {
@@ -39,26 +45,26 @@ fn process_file(file_name: &Path, mut code_writer: &mut CodeWriter) -> io::Resul
                     io::Error::new(io::ErrorKind::InvalidInput, "missing command name")
                 })?;
                 let segment = command_iter.next().ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::InvalidInput, "missing command name")
+                    io::Error::new(io::ErrorKind::InvalidInput, "missing segment name")
                 })?;
                 let index_str = command_iter
                     .next()
                     .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing index"))?;
 
-                let index = index_str.parse::<i16>().ok().unwrap();
+                let index = index_str.parse::<usize>().ok().unwrap();
 
                 println!(
                     "THE command name is: {}. The segment is: {}. The index is {}.",
                     command_name, segment, index
                 );
-                code_writer.write_push_pop(command_name, segment, index);
+                code_writer.write_push_pop(command_name, segment, index)?;
             }
             VMCOMMAND::CLabel => {
                 let label = parser.arg_two().ok_or_else(|| {
                     io::Error::new(io::ErrorKind::InvalidInput, "missing label name")
                 })?;
 
-                code_writer.write_label(label);
+                code_writer.write_label(label)?;
             }
             VMCOMMAND::CFunction => {
                 let f_name = parser.arg_one().ok_or_else(|| {
@@ -74,7 +80,7 @@ fn process_file(file_name: &Path, mut code_writer: &mut CodeWriter) -> io::Resul
                     .map_err(|_| {
                         io::Error::new(io::ErrorKind::InvalidInput, "invalid numLocals value")
                     })?;
-                code_writer.write_function(&f_name, n_locals);
+                code_writer.write_function(&f_name, n_locals)?;
             }
             VMCOMMAND::CCall => {
                 let n_args: i16 = parser
@@ -91,22 +97,22 @@ fn process_file(file_name: &Path, mut code_writer: &mut CodeWriter) -> io::Resul
                     io::Error::new(io::ErrorKind::InvalidInput, "missing function callee name")
                 })?;
 
-                code_writer.write_call(callee, n_args);
+                code_writer.write_call(callee, n_args)?;
             }
             VMCOMMAND::CReturn => {
-                code_writer.write_return();
+                code_writer.write_return()?;
             }
             VMCOMMAND::CIf => {
                 let label = parser.arg_two().ok_or_else(|| {
                     io::Error::new(io::ErrorKind::InvalidInput, "missing label name")
                 })?;
-                code_writer.write_if_goto(label);
+                code_writer.write_if_goto(label)?;
             }
             VMCOMMAND::CGoto => {
                 let label = parser.arg_two().ok_or_else(|| {
                     io::Error::new(io::ErrorKind::InvalidInput, "missing label name")
                 })?;
-                code_writer.write_goto(label);
+                code_writer.write_goto(label)?;
             }
             VMCOMMAND::None => {}
         }
@@ -131,19 +137,21 @@ fn main() -> io::Result<()> {
             .to_string();
 
         code_writer.current_file = Some(file_stem);
-        process_file(&input_path, &mut code_writer);
+        process_file(&input_path, &mut code_writer)?;
     } else if input_path.is_dir() {
         for entry in input_path.read_dir().expect("read_dir call failed") {
             if let Ok(entry) = entry {
                 let path = entry.path();
-                let file_stem = path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "invalid filename"))?
-                    .to_string();
-                code_writer.current_file = Some(file_stem);
-                println!("we are in file: {:?}", path);
-                process_file(&path, &mut code_writer);
+                if path.extension().unwrap().to_str().unwrap() == "vm" {
+                    let file_stem = path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "invalid filename"))?
+                        .to_string();
+                    code_writer.current_file = Some(file_stem);
+                    println!("we are in file: {:?}", path);
+                    process_file(&path, &mut code_writer)?;
+                }
             }
         }
     }
@@ -243,11 +251,12 @@ impl Parser {
         match ct {
             VMCOMMAND::CCall | VMCOMMAND::CFunction | VMCOMMAND::CPop | VMCOMMAND::CPush => {
                 let s = self.current.as_ref()?;
-                s.split_whitespace().nth(2).and_then(|x| Some(x))
+
+                s.split_whitespace().nth(2)
             }
-            VMCOMMAND::CIf | VMCOMMAND::CGoto => {
+            VMCOMMAND::CIf | VMCOMMAND::CGoto | VMCOMMAND::CLabel => {
                 let s = self.current.as_ref()?;
-                s.split_whitespace().nth(1).and_then(|x| Some(x))
+                s.split_whitespace().nth(1)
             }
             _ => None,
         }
@@ -264,8 +273,7 @@ struct CodeWriter {
 impl CodeWriter {
     fn new() -> io::Result<Self> {
         let file = OpenOptions::new()
-            .read(true)
-            .append(true)
+            .truncate(true)
             .write(true)
             .create(true)
             .open("output.asm")
@@ -288,7 +296,8 @@ impl CodeWriter {
 @256
 D=A
 @SP
-M=D"#
+M=D
+"#
         );
         if let Some(f) = self.file.as_mut() {
             f.write_all(asm_to_write.as_bytes())?;
@@ -297,7 +306,7 @@ M=D"#
             return Err(io::Error::new(io::ErrorKind::Other, "no output file"));
         }
 
-        self.write_call("Sys.init", 0);
+        self.write_call("Sys.init", 0)?;
 
         Ok(())
     }
@@ -322,7 +331,11 @@ M=D"#
         Ok(())
     }
     fn write_goto(&mut self, label: &str) -> io::Result<()> {
-        let asm_to_write = format!("@{label}\n0;JMP\n");
+        let f_name = self
+            .current_function
+            .as_deref()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "goto outside function"))?;
+        let asm_to_write = format!("@{f_name}${label}\n0;JMP\n", f_name = f_name, label = label);
         if let Some(f) = self.file.as_mut() {
             f.write_all(asm_to_write.as_bytes())?;
             f.flush()?;
@@ -333,7 +346,15 @@ M=D"#
         Ok(())
     }
     fn write_if_goto(&mut self, label: &str) -> io::Result<()> {
-        let asm_to_write = format!("@SP\nAM=M-1\nD=M\n@{label}\nD;JNE\n", label = label);
+        let f_name = self
+            .current_function
+            .as_deref()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "if-goto outside function"))?;
+        let asm_to_write = format!(
+            "@SP\nAM=M-1\nD=M\n@{f_name}${label}\nD;JNE\n",
+            f_name = f_name,
+            label = label
+        );
         if let Some(f) = self.file.as_mut() {
             f.write_all(asm_to_write.as_bytes())?;
             f.flush()?;
@@ -474,10 +495,11 @@ A=M
     }
     fn write_function(&mut self, f_name: &str, n_locals: i16) -> io::Result<()> {
         self.current_function = Some(f_name.to_string());
+
         let mut push_locals = String::new();
 
         for _i in 0..n_locals {
-            push_locals.push_str("@SP\nD=A\nA=M\nM=D\n@SP\nM=M+1\n");
+            push_locals.push_str("@0\nD=A\nM=D\n@SP\nM=M+1\n");
         }
 
         let asm_to_write = format!(
@@ -494,9 +516,7 @@ A=M
 
         Ok(())
     }
-    fn set_file_name(&mut self, fname: &str) {
-        self.current_file = Some(fname.to_string());
-    }
+
     fn write_arithmetic(&mut self, command: &str) -> io::Result<()> {
         let writer = self
             .file
@@ -558,7 +578,7 @@ A=M
 
         Ok(())
     }
-    fn write_push_pop(&mut self, command: &str, segment: &str, index: i16) -> io::Result<()> {
+    fn write_push_pop(&mut self, command: &str, segment: &str, index: usize) -> io::Result<()> {
         let segment = segment.to_lowercase();
         println!("segment is: {}", segment);
         let mut machine_code = String::from("");
