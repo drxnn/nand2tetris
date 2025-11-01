@@ -327,7 +327,7 @@ A=M
     }
     pub fn write_push_pop(&mut self, command: &str, segment: &str, index: usize) -> io::Result<()> {
         let segment = segment.to_lowercase();
-        println!("segment is: {}", segment);
+
         let mut machine_code = String::from("");
 
         match command {
@@ -338,12 +338,10 @@ A=M
                             format!("@{index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n", index = index);
                     }
                     "static" => {
-                        println!("we are in static seg");
                         let f_name = self.current_file.as_ref().ok_or_else(|| {
                             io::Error::new(io::ErrorKind::Other, "no current file")
                         })?;
 
-                        println!("after f name");
                         machine_code = format!(
                             "@{f_name}.{index}\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n",
                             f_name = f_name,
@@ -451,7 +449,6 @@ A=M
             }
         };
 
-        println!("machine code is: {}", machine_code);
         if let Some(f) = self.file.as_mut() {
             f.write_all(machine_code.as_bytes())?;
             f.flush()?;

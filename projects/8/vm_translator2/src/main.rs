@@ -13,16 +13,13 @@ use std::path::PathBuf;
 use std::{env, io};
 
 fn process_file(file_name: &Path, mut code_writer: &mut CodeWriter) -> io::Result<()> {
-    println!("beginning of process_file");
     let buffer = fs::read_to_string(file_name)?;
 
     let mut parser = Parser::new(&buffer);
 
     while parser.has_more_commands() {
         parser.advance();
-        println!("current is: {:?}", parser.current);
-        println!("current file is {:?}", code_writer.current_file);
-        println!("current function is {:?}", code_writer.current_function);
+
         let command_type = parser.command_type();
 
         match command_type {
@@ -144,7 +141,7 @@ fn main() -> io::Result<()> {
                         .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "invalid filename"))?
                         .to_string();
                     code_writer.current_file = Some(file_stem);
-                    println!("we are in file: {:?}", path);
+
                     process_file(&path, &mut code_writer)?;
                 }
             }
