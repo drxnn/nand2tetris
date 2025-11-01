@@ -8,22 +8,14 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::{env, io};
 
-#[allow(dead_code)]
-
 fn process_file(file_name: &Path, mut code_writer: &mut CodeWriter) -> io::Result<()> {
     println!("beginning of process_file");
     let buffer = fs::read_to_string(file_name)?;
 
     let mut parser = Parser::new(&buffer);
 
-    if code_writer.current_function.is_none() {
-        if let Some(file_stem) = code_writer.current_file.clone() {
-            code_writer.current_function = Some(file_stem);
-        }
-    }
-
-    parser.advance();
     while parser.has_more_commands() {
+        parser.advance();
         println!("current is: {:?}", parser.current);
         println!("current file is {:?}", code_writer.current_file);
         println!("current function is {:?}", code_writer.current_function);
@@ -34,6 +26,7 @@ fn process_file(file_name: &Path, mut code_writer: &mut CodeWriter) -> io::Resul
                 let command_arg = parser.current.as_ref().ok_or_else(|| {
                     io::Error::new(io::ErrorKind::InvalidInput, "missing command arg")
                 })?;
+                println!("command is: {}", command_arg);
                 code_writer.write_arithmetic(&command_arg)?;
             }
             VMCOMMAND::CPop | VMCOMMAND::CPush => {
@@ -116,8 +109,6 @@ fn process_file(file_name: &Path, mut code_writer: &mut CodeWriter) -> io::Resul
             }
             VMCOMMAND::None => {}
         }
-
-        parser.advance();
     }
     Ok(())
 }
@@ -218,7 +209,8 @@ impl Parser {
             Some(c)
                 if ["add", "sub", "lt", "eq", "gt", "and", "or", "not", "neg"]
                     .iter()
-                    .any(|&x| c.contains(x)) =>
+                    .any(|&x| c.split_whitespace().next().unwrap() == x) =>
+            // come up with something better
             {
                 VMCOMMAND::CArithmetic
             }
@@ -297,6 +289,7 @@ impl CodeWriter {
 D=A
 @SP
 M=D
+
 "#
         );
         if let Some(f) = self.file.as_mut() {
@@ -320,6 +313,7 @@ M=D
                 ));
             }
         };
+
         let asm_to_write = format!("({}${})\n", f_name, label);
         if let Some(f) = self.file.as_mut() {
             f.write_all(asm_to_write.as_bytes())?;
@@ -370,6 +364,7 @@ M=D
             .as_deref()
             .unwrap_or("BOOT")
             .to_string();
+
         let return_label = self.generate_return_label(&caller);
         let asm_to_write = format!(
             r#"
@@ -422,6 +417,7 @@ M=D
 @{callee}
 0;JMP
 ({return_label})
+
         "#
         );
 
@@ -481,6 +477,7 @@ M=D
 @R14
 A=M
 0;JMP
+
 "#
         );
 
@@ -499,7 +496,7 @@ A=M
         let mut push_locals = String::new();
 
         for _i in 0..n_locals {
-            push_locals.push_str("@0\nD=A\nM=D\n@SP\nM=M+1\n");
+            push_locals.push_str("@0\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n");
         }
 
         let asm_to_write = format!(
