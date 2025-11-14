@@ -1,0 +1,168 @@
+class Hangman  {
+    field int guessesLeft;
+    field String word0;
+    field String word1;
+    field String word2;
+    field int wordlength;
+    field int index;
+    field Array words;
+    field String currentWord;
+    // field int gameOver;
+
+
+    constructor Hangman new() {
+
+
+    let guessesLeft = 5;
+    let index = 0;
+  
+  /*  = "apple" */
+let word0 = String.new(5);
+do word0.appendChar(97);
+do word0.appendChar(112);
+do word0.appendChar(112);
+do word0.appendChar(108);
+do word0.appendChar(101);
+
+/*  = "consequence" */
+let word1 = String.new(11);
+do word1.appendChar(99);  
+do word1.appendChar(111); 
+do word1.appendChar(110); 
+do word1.appendChar(115); 
+do word1.appendChar(101); 
+do word1.appendChar(113); 
+do word1.appendChar(117); 
+do word1.appendChar(101); 
+do word1.appendChar(110); 
+do word1.appendChar(99);  
+do word1.appendChar(101); 
+
+/* "airplane" */
+let word2 = String.new(8);
+do word2.appendChar(97);   
+do word2.appendChar(105);  
+do word2.appendChar(114);  
+do word2.appendChar(112);  
+do word2.appendChar(108);  
+do word2.appendChar(97);   
+do word2.appendChar(110);  
+do word2.appendChar(101);  
+
+
+
+let currentWord = word0;
+    let wordlength = word0.length(); 
+    do Screen.clearScreen();
+    do Output.moveCursor(22, 0);
+    do Output.printString("Guesses left: "); // 5 is at 15th place
+    do Output.moveCursor(22, 15);
+
+    do Output.printInt(guessesLeft);
+    do Output.moveCursor(3, 15);
+    do Output.printString("The secret word has   letters.");
+    do Output.moveCursor(3,35); // this is where guessesleft lives
+    do Output.printInt(wordlength);
+    do Output.moveCursor(1, 26);
+    do Output.printString("Hangman");
+
+    do drawTiles();
+
+    do Output.moveCursor(5, 15);
+    do Output.printString("Press a key to guess a letter");
+
+
+
+    do run();
+    return this;
+
+    }
+
+
+// this method should be called if the user correctly guesses the word
+method void updateCurrentWord() {
+    if (index = 0) {
+        let currentWord = word0;
+    } if(index = 1) {
+        let currentWord = word1;
+    } else {
+        let currentWord = word2;
+    }
+    let wordlength = currentWord.length();
+    return;
+} 
+
+  method void drawTiles() {
+  var int r;
+  var int c;
+  var int space;
+  var int i;
+  let r = 10;
+  let c = 26;
+  let space = 2;
+  let i = 0;
+ 
+while(i < wordlength) {
+ do Output.moveCursor(r,c);
+ do Output.printChar(95);
+let c = c + space;
+ let i = i + 1;
+  }
+  return;
+  }
+  method void drawLetter(int index, char ch) {
+  var int r, c, space;
+  let r = 10;
+  let c = 26;
+  let space = 2;
+  // go to position
+  // so we are receiving an index param, thats the index of our string. the offset for each index should be 
+  // c + space * index
+  do Output.moveCursor(10, c + (index * space));
+  do Output.printChar(ch);
+  return;
+  
+  }
+    method void guessLetter(int key) {
+    var char charToCheck;
+    var int found;
+
+    let found = 0;
+   
+    // tiles start at (10, 26) space = 2 for each letter;
+    let index = 0;
+    while(index < wordlength) {
+    let charToCheck = currentWord.charAt(index);
+      if (charToCheck = key) {
+       do drawLetter(index, charToCheck); 
+       let found = 1;
+      
+      }
+      let index = index + 1;
+      }
+      if (~(key = 0) & (found = 0)) {
+      let guessesLeft = guessesLeft - 1;
+       do Output.moveCursor(22,15); // this is where guessesleft lives
+    do Output.printInt(guessesLeft);
+      }
+
+    
+ return;
+
+  }
+
+  method void run() {
+    var int userKey;
+  // run game until guessesLeft = 0, or user correctly guesses word(then move on to the next one)
+  while(~(guessesLeft = 0)  /* ~(gameOver) */ ) {
+    let userKey = Keyboard.keyPressed();
+    if (~(userKey = 0)) {
+    do guessLetter(userKey);
+    }
+    
+  }
+  return;
+  }
+
+}
+

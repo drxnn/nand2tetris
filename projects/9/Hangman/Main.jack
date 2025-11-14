@@ -1,0 +1,15 @@
+
+class Main {
+
+function void main() {
+
+// have to have a way to end game
+// run
+   
+var Hangman hangman;
+let hangman = Hangman.new();
+
+        return;
+    }
+
+}
