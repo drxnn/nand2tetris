@@ -3,7 +3,23 @@ class Hangman  {
     field String word0;
     field String word1;
     field String word2;
+    field String word3;
+    field String word4;
+    field String word5;
+    field String word6;
+    field String word7;
+    field String word8;
+    field String word9;
+    field String word10;
+    field String word11;
+    field String word12;
+    field String word13;
+    field String word14;
     field int wordlength;
+    field int found;
+
+
+    field int score;
     field int index;
     field Array words;
     field String currentWord;
@@ -49,16 +65,163 @@ do word2.appendChar(97);
 do word2.appendChar(110);  
 do word2.appendChar(101);  
 
+/* word3 = "mountain" (8) */
+        let word3 = String.new(8);
+        do word3.appendChar(109);
+        do word3.appendChar(111);
+        do word3.appendChar(117);
+        do word3.appendChar(110);
+        do word3.appendChar(116);
+        do word3.appendChar(97);
+        do word3.appendChar(105);
+        do word3.appendChar(110);
 
+        /* word4 = "computer" (8) */
+        let word4 = String.new(8);
+        do word4.appendChar(99);
+        do word4.appendChar(111);
+        do word4.appendChar(109);
+        do word4.appendChar(112);
+        do word4.appendChar(117);
+        do word4.appendChar(116);
+        do word4.appendChar(101);
+        do word4.appendChar(114);
+
+        /* word5 = "programming" (11) */
+        let word5 = String.new(11);
+        do word5.appendChar(112);
+        do word5.appendChar(114);
+        do word5.appendChar(111);
+        do word5.appendChar(103);
+        do word5.appendChar(114);
+        do word5.appendChar(97);
+        do word5.appendChar(109);
+        do word5.appendChar(109);
+        do word5.appendChar(105);
+        do word5.appendChar(110);
+        do word5.appendChar(103);
+
+        /* word6 = "keyboard" (8) */
+        let word6 = String.new(8);
+        do word6.appendChar(107);
+        do word6.appendChar(101);
+        do word6.appendChar(121);
+        do word6.appendChar(98);
+        do word6.appendChar(111);
+        do word6.appendChar(97);
+        do word6.appendChar(114);
+        do word6.appendChar(100);
+
+        /* word7 = "pineapple" (9) */
+        let word7 = String.new(9);
+        do word7.appendChar(112);
+        do word7.appendChar(105);
+        do word7.appendChar(110);
+        do word7.appendChar(101);
+        do word7.appendChar(97);
+        do word7.appendChar(112);
+        do word7.appendChar(112);
+        do word7.appendChar(108);
+        do word7.appendChar(101);
+
+        /* word8 = "elephant" (8) */
+        let word8 = String.new(8);
+        do word8.appendChar(101);
+        do word8.appendChar(108);
+        do word8.appendChar(101);
+        do word8.appendChar(112);
+        do word8.appendChar(104);
+        do word8.appendChar(97);
+        do word8.appendChar(110);
+        do word8.appendChar(116);
+
+        /* word9 = "dinosaur" (8) */
+        let word9 = String.new(8);
+        do word9.appendChar(100);
+        do word9.appendChar(105);
+        do word9.appendChar(110);
+        do word9.appendChar(111);
+        do word9.appendChar(115);
+        do word9.appendChar(97);
+        do word9.appendChar(117);
+        do word9.appendChar(114);
+
+        /* word10 = "beautiful" (9) */
+        let word10 = String.new(9);
+        do word10.appendChar(98);
+        do word10.appendChar(101);
+        do word10.appendChar(97);
+        do word10.appendChar(117);
+        do word10.appendChar(116);
+        do word10.appendChar(105);
+        do word10.appendChar(102);
+        do word10.appendChar(117);
+        do word10.appendChar(108);
+
+        /* word11 = "challenge" (9) */
+        let word11 = String.new(9);
+        do word11.appendChar(99);
+        do word11.appendChar(104);
+        do word11.appendChar(97);
+        do word11.appendChar(108);
+        do word11.appendChar(108);
+        do word11.appendChar(101);
+        do word11.appendChar(110);
+        do word11.appendChar(103);
+        do word11.appendChar(101);
+
+        /* word12 = "notebook" (8) */
+        let word12 = String.new(8);
+        do word12.appendChar(110);
+        do word12.appendChar(111);
+        do word12.appendChar(116);
+        do word12.appendChar(101);
+        do word12.appendChar(98);
+        do word12.appendChar(111);
+        do word12.appendChar(111);
+        do word12.appendChar(107);
+
+        /* word13 = "triangle" (8) */
+        let word13 = String.new(8);
+        do word13.appendChar(116);
+        do word13.appendChar(114);
+        do word13.appendChar(105);
+        do word13.appendChar(97);
+        do word13.appendChar(110);
+        do word13.appendChar(103);
+        do word13.appendChar(108);
+        do word13.appendChar(101);
+
+        /* word14 = "umbrella" (8) */
+        let word14 = String.new(8);
+        do word14.appendChar(117);
+        do word14.appendChar(109);
+        do word14.appendChar(98);
+        do word14.appendChar(114);
+        do word14.appendChar(101);
+        do word14.appendChar(108);
+        do word14.appendChar(108);
+        do word14.appendChar(97);
+
+let found = 0;
 
 let currentWord = word0;
     let wordlength = word0.length(); 
+    let score = 0;
     do Screen.clearScreen();
     do Output.moveCursor(22, 0);
     do Output.printString("Guesses left: "); // 5 is at 15th place
     do Output.moveCursor(22, 15);
+    
 
     do Output.printInt(guessesLeft);
+
+    do Output.moveCursor(18, 0);
+    do Output.printString("Score: ");
+    do Output.moveCursor(18, 7);
+    do Output.printInt(score);
+
+
     do Output.moveCursor(3, 15);
     do Output.printString("The secret word has   letters.");
     do Output.moveCursor(3,35); // this is where guessesleft lives
@@ -83,15 +246,96 @@ let currentWord = word0;
 method void updateCurrentWord() {
     if (index = 0) {
         let currentWord = word0;
-    } if(index = 1) {
+    
+    } 
+    if(index = 1) {
         let currentWord = word1;
-    } else {
+    
+    } 
+    if(index = 2) {
         let currentWord = word2;
+    
     }
+    if(index = 3) {
+    let currentWord = word3;
+
+    }
+    if (index = 4) {
+        let currentWord = word4;
+    
+    }
+
+    if (index = 5) {
+        let currentWord = word5;
+    
+    }
+
+    if (index = 6) {
+        let currentWord = word6;
+    
+    }
+
+    if (index = 7) {
+        let currentWord = word7;
+    
+    }
+
+    if (index = 8) {
+        let currentWord = word8;
+    
+    }
+
+    if (index = 9) {
+        let currentWord = word9;
+    
+    }
+
+    if (index = 10) {
+        let currentWord = word10;
+    
+    }
+
+    if (index = 11) {
+        let currentWord = word11;
+    
+    }
+
+    if (index = 12) {
+        let currentWord = word12;
+    
+    }
+
+    if (index = 13) {
+        let currentWord = word13;
+    
+    }
+
+    if (index = 14) {
+        let currentWord = word14;
+    
+    }
+
     let wordlength = currentWord.length();
     return;
 } 
 
+method void clearTiles(int wordLength) {
+var int r;
+  var int c;
+  var int space;
+  var int i;
+  let r = 10;
+  let c = 26;
+  let space = 2;
+  let i = 0;
+  while(i < wordlength) {
+ do Output.moveCursor(r,c);
+ do Output.printChar(32);
+let c = c + space;
+ let i = i + 1;
+  }
+return;
+}
   method void drawTiles() {
   var int r;
   var int c;
@@ -125,13 +369,9 @@ let c = c + space;
   }
     method void guessLetter(int key) {
     var char charToCheck;
-    var int found;
+
     var int i;
 
-
-    let found = 0;
-
-   
     // tiles start at (10, 26) space = 2 for each letter;
     let i = 0;
     while(i < wordlength) {
@@ -139,7 +379,7 @@ let c = c + space;
       if (charToCheck = key) {
        do drawLetter(i, charToCheck); 
        let found = found + 1;
-      
+       
       }
       let i = i + 1;
       }
@@ -151,14 +391,17 @@ let c = c + space;
 
       if (found = wordlength) {
       let index = index + 1;
+      do clearTiles(wordlength);
       do updateCurrentWord();
+      do drawTiles();
+      do updateScore();
       do Output.moveCursor(12, 23);
-      do Output.printString("You won!");
+      do Output.printString("You guessed correctly!");
       do Sys.wait(1500);
     do Output.moveCursor(12, 23);
-      do Output.printString("        "); 
-      do drawTiles();
-    
+      do Output.printString("                      "); 
+  
+      let found = 0;
       }
 
     
@@ -166,8 +409,21 @@ let c = c + space;
 
   }
 
+  method void updateScore() {
+    let score = score + 1;
+    do Output.moveCursor(18, 7);
+    do Output.printInt(score);
+
+    return;
+
+
+  }
+
   method void run() {
+
+
     var int userKey;
+
   // run game until guessesLeft = 0, or user correctly guesses word(then move on to the next one)
   while(~(guessesLeft = 0)  /* ~(gameOver) */ ) {
     let userKey = Keyboard.keyPressed();
