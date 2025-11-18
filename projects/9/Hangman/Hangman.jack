@@ -15,8 +15,15 @@ class Hangman  {
     field String word12;
     field String word13;
     field String word14;
-    field int wordlength;
+    field int wordLength;
     field int found;
+    field Array revealedWord;
+
+    /* 
+    have a revealedWord array and initiate it to be wordLength and all entries be 0(update it when updating word)
+    
+
+    */
 
 
     field int score;
@@ -206,7 +213,7 @@ do word2.appendChar(101);
 let found = 0;
 
 let currentWord = word0;
-    let wordlength = word0.length(); 
+    let wordLength = word0.length(); 
     let score = 0;
     do Screen.clearScreen();
     do Output.moveCursor(22, 0);
@@ -225,11 +232,12 @@ let currentWord = word0;
     do Output.moveCursor(3, 15);
     do Output.printString("The secret word has   letters.");
     do Output.moveCursor(3,35); // this is where guessesleft lives
-    do Output.printInt(wordlength);
+    do Output.printInt(wordLength);
     do Output.moveCursor(1, 26);
     do Output.printString("Hangman");
 
     do drawTiles();
+    do initRevealed();
 
     do Output.moveCursor(5, 15);
     do Output.printString("Press a key to guess a letter");
@@ -242,6 +250,24 @@ let currentWord = word0;
     }
 
 
+method void drawGallow() {
+
+// draw Gallow here
+
+return;}
+
+method void initRevealed() {
+    var int i;
+    let revealedWord = Array.new(wordLength);
+    let i=0;
+
+    while(i<wordLength){
+        let revealedWord[i] = 0;
+        let i = i+1;
+    }
+
+    return;
+}
 // this method should be called if the user correctly guesses the word
 method void updateCurrentWord() {
     if (index = 0) {
@@ -315,7 +341,7 @@ method void updateCurrentWord() {
     
     }
 
-    let wordlength = currentWord.length();
+    let wordLength = currentWord.length();
     return;
 } 
 
@@ -328,7 +354,7 @@ var int r;
   let c = 26;
   let space = 2;
   let i = 0;
-  while(i < wordlength) {
+  while(i < wordLength) {
  do Output.moveCursor(r,c);
  do Output.printChar(32);
 let c = c + space;
@@ -346,7 +372,7 @@ return;
   let space = 2;
   let i = 0;
  
-while(i < wordlength) {
+while(i < wordLength) {
  do Output.moveCursor(r,c);
  do Output.printChar(95);
 let c = c + space;
@@ -373,13 +399,16 @@ let c = c + space;
     var int i;
 
     // tiles start at (10, 26) space = 2 for each letter;
+    // go to revealedWord and if position is 0, make it a 1
     let i = 0;
-    while(i < wordlength) {
+    while(i < wordLength) {
     let charToCheck = currentWord.charAt(i);
       if (charToCheck = key) {
-       do drawLetter(i, charToCheck); 
+      if(revealedWord[i] = 0) {
+       let revealedWord[i] = 1;
+        do drawLetter(i, charToCheck); 
        let found = found + 1;
-       
+      }
       }
       let i = i + 1;
       }
@@ -389,11 +418,12 @@ let c = c + space;
     do Output.printInt(guessesLeft);
       }
 
-      if (found = wordlength) {
+      if (found = wordLength) {
       let index = index + 1;
-      do clearTiles(wordlength);
+      do clearTiles(wordLength);
       do updateCurrentWord();
       do drawTiles();
+      do initRevealed();
       do updateScore();
       do Output.moveCursor(12, 23);
       do Output.printString("You guessed correctly!");
@@ -426,6 +456,12 @@ let c = c + space;
 
   // run game until guessesLeft = 0, or user correctly guesses word(then move on to the next one)
   while(~(guessesLeft = 0)  /* ~(gameOver) */ ) {
+  if (score = 14) {
+    do Screen.clearScreen();
+    do Output.moveCursor(3, 15);
+    do Output.printString("Game over! You guessed all the words! ");
+
+  }
     let userKey = Keyboard.keyPressed();
     if (~(userKey = 0)) {
     do Sys.wait(200); // since keypressed its a while loop, we dont want to decrement guessesLEft in the function if the user is holding the key 

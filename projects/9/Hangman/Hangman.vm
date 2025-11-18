@@ -1,11 +1,11 @@
 function Hangman.new 0
-    push constant 22
+    push constant 23
     call Memory.alloc 1
     pop pointer 0
     push constant 5
     pop this 0
     push constant 0
-    pop this 19
+    pop this 20
     push constant 5
     call String.new 1
     pop this 1
@@ -558,12 +558,12 @@ function Hangman.new 0
     push constant 0
     pop this 17
     push this 1
-    pop this 21
+    pop this 22
     push this 1
     call String.length 1
     pop this 16
     push constant 0
-    pop this 18
+    pop this 19
     call Screen.clearScreen 0
     pop temp 0
     push constant 22
@@ -635,7 +635,7 @@ function Hangman.new 0
     push constant 7
     call Output.moveCursor 2
     pop temp 0
-    push this 18
+    push this 19
     call Output.printInt 1
     pop temp 0
     push constant 3
@@ -738,6 +738,9 @@ function Hangman.new 0
     push pointer 0
     call Hangman.drawTiles 1
     pop temp 0
+    push pointer 0
+    call Hangman.initRevealed 1
+    pop temp 0
     push constant 5
     push constant 15
     call Output.moveCursor 2
@@ -809,160 +812,195 @@ function Hangman.new 0
     pop temp 0
     push pointer 0
     return
+function Hangman.drawGallow 0
+    push argument 0
+    pop pointer 0
+    push constant 0
+    return
+function Hangman.initRevealed 1
+    push argument 0
+    pop pointer 0
+    push this 16
+    call Array.new 1
+    pop this 18
+    push constant 0
+    pop local 0
+label Hangman_0
+    push local 0
+    push this 16
+    lt
+    not
+    if-goto Hangman_1
+    push local 0
+    push this 18
+    add
+    push constant 0
+    pop temp 0
+    pop pointer 1
+    push temp 0
+    pop that 0
+    push local 0
+    push constant 1
+    add
+    pop local 0
+    goto Hangman_0
+label Hangman_1
+    push constant 0
+    return
 function Hangman.updateCurrentWord 0
     push argument 0
     pop pointer 0
-    push this 19
+    push this 20
     push constant 0
     eq
     not
-    if-goto Hangman_1
-    push this 1
-    pop this 21
-    goto Hangman_0
-label Hangman_1
-label Hangman_0
-    push this 19
-    push constant 1
-    eq
-    not
     if-goto Hangman_3
-    push this 2
-    pop this 21
+    push this 1
+    pop this 22
     goto Hangman_2
 label Hangman_3
 label Hangman_2
-    push this 19
-    push constant 2
+    push this 20
+    push constant 1
     eq
     not
     if-goto Hangman_5
-    push this 3
-    pop this 21
+    push this 2
+    pop this 22
     goto Hangman_4
 label Hangman_5
 label Hangman_4
-    push this 19
-    push constant 3
+    push this 20
+    push constant 2
     eq
     not
     if-goto Hangman_7
-    push this 4
-    pop this 21
+    push this 3
+    pop this 22
     goto Hangman_6
 label Hangman_7
 label Hangman_6
-    push this 19
-    push constant 4
+    push this 20
+    push constant 3
     eq
     not
     if-goto Hangman_9
-    push this 5
-    pop this 21
+    push this 4
+    pop this 22
     goto Hangman_8
 label Hangman_9
 label Hangman_8
-    push this 19
-    push constant 5
+    push this 20
+    push constant 4
     eq
     not
     if-goto Hangman_11
-    push this 6
-    pop this 21
+    push this 5
+    pop this 22
     goto Hangman_10
 label Hangman_11
 label Hangman_10
-    push this 19
-    push constant 6
+    push this 20
+    push constant 5
     eq
     not
     if-goto Hangman_13
-    push this 7
-    pop this 21
+    push this 6
+    pop this 22
     goto Hangman_12
 label Hangman_13
 label Hangman_12
-    push this 19
-    push constant 7
+    push this 20
+    push constant 6
     eq
     not
     if-goto Hangman_15
-    push this 8
-    pop this 21
+    push this 7
+    pop this 22
     goto Hangman_14
 label Hangman_15
 label Hangman_14
-    push this 19
-    push constant 8
+    push this 20
+    push constant 7
     eq
     not
     if-goto Hangman_17
-    push this 9
-    pop this 21
+    push this 8
+    pop this 22
     goto Hangman_16
 label Hangman_17
 label Hangman_16
-    push this 19
-    push constant 9
+    push this 20
+    push constant 8
     eq
     not
     if-goto Hangman_19
-    push this 10
-    pop this 21
+    push this 9
+    pop this 22
     goto Hangman_18
 label Hangman_19
 label Hangman_18
-    push this 19
-    push constant 10
+    push this 20
+    push constant 9
     eq
     not
     if-goto Hangman_21
-    push this 11
-    pop this 21
+    push this 10
+    pop this 22
     goto Hangman_20
 label Hangman_21
 label Hangman_20
-    push this 19
-    push constant 11
+    push this 20
+    push constant 10
     eq
     not
     if-goto Hangman_23
-    push this 12
-    pop this 21
+    push this 11
+    pop this 22
     goto Hangman_22
 label Hangman_23
 label Hangman_22
-    push this 19
-    push constant 12
+    push this 20
+    push constant 11
     eq
     not
     if-goto Hangman_25
-    push this 13
-    pop this 21
+    push this 12
+    pop this 22
     goto Hangman_24
 label Hangman_25
 label Hangman_24
-    push this 19
-    push constant 13
+    push this 20
+    push constant 12
     eq
     not
     if-goto Hangman_27
-    push this 14
-    pop this 21
+    push this 13
+    pop this 22
     goto Hangman_26
 label Hangman_27
 label Hangman_26
-    push this 19
-    push constant 14
+    push this 20
+    push constant 13
     eq
     not
     if-goto Hangman_29
-    push this 15
-    pop this 21
+    push this 14
+    pop this 22
     goto Hangman_28
 label Hangman_29
 label Hangman_28
-    push this 21
+    push this 20
+    push constant 14
+    eq
+    not
+    if-goto Hangman_31
+    push this 15
+    pop this 22
+    goto Hangman_30
+label Hangman_31
+label Hangman_30
+    push this 22
     call String.length 1
     pop this 16
     push constant 0
@@ -978,12 +1016,12 @@ function Hangman.clearTiles 4
     pop local 2
     push constant 0
     pop local 3
-label Hangman_30
+label Hangman_32
     push local 3
-    push this 16
+    push argument 1
     lt
     not
-    if-goto Hangman_31
+    if-goto Hangman_33
     push local 0
     push local 1
     call Output.moveCursor 2
@@ -999,8 +1037,8 @@ label Hangman_30
     push constant 1
     add
     pop local 3
-    goto Hangman_30
-label Hangman_31
+    goto Hangman_32
+label Hangman_33
     push constant 0
     return
 function Hangman.drawTiles 4
@@ -1014,12 +1052,12 @@ function Hangman.drawTiles 4
     pop local 2
     push constant 0
     pop local 3
-label Hangman_32
+label Hangman_34
     push local 3
     push this 16
     lt
     not
-    if-goto Hangman_33
+    if-goto Hangman_35
     push local 0
     push local 1
     call Output.moveCursor 2
@@ -1035,8 +1073,8 @@ label Hangman_32
     push constant 1
     add
     pop local 3
-    goto Hangman_32
-label Hangman_33
+    goto Hangman_34
+label Hangman_35
     push constant 0
     return
 function Hangman.drawLetter 3
@@ -1066,13 +1104,13 @@ function Hangman.guessLetter 2
     pop pointer 0
     push constant 0
     pop local 1
-label Hangman_34
+label Hangman_36
     push local 1
     push this 16
     lt
     not
-    if-goto Hangman_35
-    push this 21
+    if-goto Hangman_37
+    push this 22
     push local 1
     call String.charAt 2
     pop local 0
@@ -1080,7 +1118,24 @@ label Hangman_34
     push argument 1
     eq
     not
-    if-goto Hangman_37
+    if-goto Hangman_39
+    push local 1
+    push this 18
+    add
+    pop pointer 1
+    push that 0
+    push constant 0
+    eq
+    not
+    if-goto Hangman_41
+    push local 1
+    push this 18
+    add
+    push constant 1
+    pop temp 0
+    pop pointer 1
+    push temp 0
+    pop that 0
     push pointer 0
     push local 1
     push local 0
@@ -1090,15 +1145,18 @@ label Hangman_34
     push constant 1
     add
     pop this 17
-    goto Hangman_36
-label Hangman_37
-label Hangman_36
+    goto Hangman_40
+label Hangman_41
+label Hangman_40
+    goto Hangman_38
+label Hangman_39
+label Hangman_38
     push local 1
     push constant 1
     add
     pop local 1
-    goto Hangman_34
-label Hangman_35
+    goto Hangman_36
+label Hangman_37
     push argument 1
     push constant 0
     eq
@@ -1108,7 +1166,7 @@ label Hangman_35
     eq
     and
     not
-    if-goto Hangman_39
+    if-goto Hangman_43
     push this 0
     push constant 1
     sub
@@ -1120,18 +1178,18 @@ label Hangman_35
     push this 0
     call Output.printInt 1
     pop temp 0
-    goto Hangman_38
-label Hangman_39
-label Hangman_38
+    goto Hangman_42
+label Hangman_43
+label Hangman_42
     push this 17
     push this 16
     eq
     not
-    if-goto Hangman_41
-    push this 19
+    if-goto Hangman_45
+    push this 20
     push constant 1
     add
-    pop this 19
+    pop this 20
     push pointer 0
     push this 16
     call Hangman.clearTiles 2
@@ -1141,6 +1199,9 @@ label Hangman_38
     pop temp 0
     push pointer 0
     call Hangman.drawTiles 1
+    pop temp 0
+    push pointer 0
+    call Hangman.initRevealed 1
     pop temp 0
     push pointer 0
     call Hangman.updateScore 1
@@ -1254,23 +1315,23 @@ label Hangman_38
     pop temp 0
     push constant 0
     pop this 17
-    goto Hangman_40
-label Hangman_41
-label Hangman_40
+    goto Hangman_44
+label Hangman_45
+label Hangman_44
     push constant 0
     return
 function Hangman.updateScore 0
     push argument 0
     pop pointer 0
-    push this 18
+    push this 19
     push constant 1
     add
-    pop this 18
+    pop this 19
     push constant 18
     push constant 7
     call Output.moveCursor 2
     pop temp 0
-    push this 18
+    push this 19
     call Output.printInt 1
     pop temp 0
     push constant 0
@@ -1278,13 +1339,107 @@ function Hangman.updateScore 0
 function Hangman.run 1
     push argument 0
     pop pointer 0
-label Hangman_42
+label Hangman_46
     push this 0
     push constant 0
     eq
     not
     not
-    if-goto Hangman_43
+    if-goto Hangman_47
+    push this 19
+    push constant 14
+    eq
+    not
+    if-goto Hangman_49
+    call Screen.clearScreen 0
+    pop temp 0
+    push constant 3
+    push constant 15
+    call Output.moveCursor 2
+    pop temp 0
+    push constant 38
+    call String.new 1
+    push constant 71
+    call String.appendChar 2
+    push constant 97
+    call String.appendChar 2
+    push constant 109
+    call String.appendChar 2
+    push constant 101
+    call String.appendChar 2
+    push constant 32
+    call String.appendChar 2
+    push constant 111
+    call String.appendChar 2
+    push constant 118
+    call String.appendChar 2
+    push constant 101
+    call String.appendChar 2
+    push constant 114
+    call String.appendChar 2
+    push constant 33
+    call String.appendChar 2
+    push constant 32
+    call String.appendChar 2
+    push constant 89
+    call String.appendChar 2
+    push constant 111
+    call String.appendChar 2
+    push constant 117
+    call String.appendChar 2
+    push constant 32
+    call String.appendChar 2
+    push constant 103
+    call String.appendChar 2
+    push constant 117
+    call String.appendChar 2
+    push constant 101
+    call String.appendChar 2
+    push constant 115
+    call String.appendChar 2
+    push constant 115
+    call String.appendChar 2
+    push constant 101
+    call String.appendChar 2
+    push constant 100
+    call String.appendChar 2
+    push constant 32
+    call String.appendChar 2
+    push constant 97
+    call String.appendChar 2
+    push constant 108
+    call String.appendChar 2
+    push constant 108
+    call String.appendChar 2
+    push constant 32
+    call String.appendChar 2
+    push constant 116
+    call String.appendChar 2
+    push constant 104
+    call String.appendChar 2
+    push constant 101
+    call String.appendChar 2
+    push constant 32
+    call String.appendChar 2
+    push constant 119
+    call String.appendChar 2
+    push constant 111
+    call String.appendChar 2
+    push constant 114
+    call String.appendChar 2
+    push constant 100
+    call String.appendChar 2
+    push constant 115
+    call String.appendChar 2
+    push constant 33
+    call String.appendChar 2
+    push constant 32
+    call String.appendChar 2
+    call Output.printString 1
+    pop temp 0
+    goto Hangman_48
+label Hangman_49
+label Hangman_48
     call Keyboard.keyPressed 0
     pop local 0
     push local 0
@@ -1292,7 +1447,7 @@ label Hangman_42
     eq
     not
     not
-    if-goto Hangman_45
+    if-goto Hangman_51
     push constant 200
     call Sys.wait 1
     pop temp 0
@@ -1300,10 +1455,10 @@ label Hangman_42
     push local 0
     call Hangman.guessLetter 2
     pop temp 0
-    goto Hangman_44
-label Hangman_45
-label Hangman_44
-    goto Hangman_42
-label Hangman_43
+    goto Hangman_50
+label Hangman_51
+label Hangman_50
+    goto Hangman_46
+label Hangman_47
     push constant 0
     return
