@@ -16,7 +16,7 @@ class Hangman  {
     field String word13;
     field String word14;
     field int wordLength;
-    field int found;
+    field int foundWord;
     field Array revealedWord;
 
     /* 
@@ -36,7 +36,7 @@ class Hangman  {
     constructor Hangman new() {
 
 
-    let guessesLeft = 5;
+    let guessesLeft = 6;
     let index = 0;
   
   /*  = "apple" */
@@ -210,14 +210,14 @@ do word2.appendChar(101);
         do word14.appendChar(108);
         do word14.appendChar(97);
 
-let found = 0;
+let foundWord = 0;
 
 let currentWord = word0;
     let wordLength = word0.length(); 
     let score = 0;
     do Screen.clearScreen();
     do Output.moveCursor(22, 0);
-    do Output.printString("Guesses left: "); // 5 is at 15th place
+    do Output.printString("Guesses left: "); // 6 is at 15th place
     do Output.moveCursor(22, 15);
     
 
@@ -231,7 +231,7 @@ let currentWord = word0;
 
     do Output.moveCursor(3, 15);
     do Output.printString("The secret word has   letters.");
-    do Output.moveCursor(3,35); // this is where guessesleft lives
+    do Output.moveCursor(3,35); // this is where wordLength lives
     do Output.printInt(wordLength);
     do Output.moveCursor(1, 26);
     do Output.printString("Hangman");
@@ -242,7 +242,7 @@ let currentWord = word0;
     do Output.moveCursor(5, 15);
     do Output.printString("Press a key to guess a letter");
 
-
+  do drawGallow();
 
     do run();
     return this;
@@ -251,10 +251,93 @@ let currentWord = word0;
 
 
 method void drawGallow() {
+do Screen.setColor(true);
+do Screen.drawRectangle(400, 210, 465, 218); // from col 400 -> 465, row 210 -> 218 | this is the base
+do Screen.drawRectangle(460, 110, 465, 209); // col 460 ->465, row 110 -> 209 | the upright
+do Screen.drawRectangle(425, 110, 465, 117); // the upper bar
+do Screen.drawRectangle(425, 110, 427, 135); // the rope
 
-// draw Gallow here
 
-return;}
+
+return;
+}
+
+method void drawHead() {
+// 4 below are head shape
+do Screen.drawLine(416, 136, 436, 136);
+do Screen.drawLine(416,136,416,156);
+do Screen.drawLine(436,136,436,156);
+do Screen.drawLine(416,156,436,156);
+// eyes below
+do Screen.drawRectangle(422, 142, 424, 144);
+do Screen.drawRectangle(430, 142, 432, 144);
+// mouth below
+do Screen.drawRectangle(422, 150, 432, 152);
+
+return;
+}
+
+method void drawBody() {
+do Screen.drawRectangle(424,157, 426, 187);
+return;
+}
+
+method void drawLeftLeg() {
+do Screen.drawLine(424,187, 400, 207);
+
+return;
+}
+method void drawRightLeg() {
+do Screen.drawLine(424,187, 448, 207);
+
+return;
+}
+
+method void drawLeftArm() {
+do Screen.drawLine(424,165, 400, 169);
+
+return;
+}
+
+method void drawRightArm() {
+do Screen.drawLine(424,165, 448, 169);
+
+return;
+}
+
+
+method void drawLimbs(int guessNumber) {
+
+
+if (guessNumber = 5) {
+do drawHead();
+}
+if(guessNumber = 4) {
+do drawBody();
+}
+if (guessNumber = 3) {
+do drawLeftArm();
+}
+if(guessNumber = 2) {
+do drawRightArm();
+}
+if (guessNumber = 1) {
+do drawLeftLeg();
+}
+if(guessNumber = 0) {
+do drawRightLeg();
+}
+
+
+return;
+}
+
+method void clearBody() {
+do Screen.setColor(false);
+do Screen.drawRectangle(400,136, 448,207);
+do Screen.setColor(true);
+return;
+}
 
 method void initRevealed() {
     var int i;
@@ -347,91 +430,113 @@ method void updateCurrentWord() {
 
 method void clearTiles(int wordLength) {
 var int r;
-  var int c;
+
   var int space;
-  var int i;
+  var int i, totalWidth, startC;
   let r = 10;
-  let c = 26;
   let space = 2;
   let i = 0;
+    let totalWidth = (wordLength - 1) * space + 2;
+  let startC = (64 - totalWidth) / 2; 
+
   while(i < wordLength) {
- do Output.moveCursor(r,c);
+ do Output.moveCursor(r,startC);
  do Output.printChar(32);
-let c = c + space;
+let startC = startC + space;
  let i = i + 1;
   }
 return;
 }
   method void drawTiles() {
   var int r;
-  var int c;
+
   var int space;
   var int i;
+  var int totalWidth;
+  var int startC;
+
+
   let r = 10;
-  let c = 26;
   let space = 2;
   let i = 0;
+  let totalWidth = (wordLength - 1) * space + 2;
+  let startC = (64 - totalWidth) / 2; 
+
  
 while(i < wordLength) {
- do Output.moveCursor(r,c);
+ do Output.moveCursor(r,startC);
  do Output.printChar(95);
-let c = c + space;
+let startC = startC + space;
  let i = i + 1;
   }
   return;
   }
   method void drawLetter(int index, char ch) {
-  var int r, c, space;
+  var int r, space, totalWidth,startC;
   let r = 10;
-  let c = 26;
+
   let space = 2;
+  let totalWidth = (wordLength - 1) * space + 2;
+  let startC = (64 - totalWidth) / 2; // center in 0..63 columns
+
   // go to position
   // so we are receiving an index param, thats the index of our string. the offset for each index should be 
   // c + space * index
-  do Output.moveCursor(10, c + (index * space));
+  do Output.moveCursor(10, startC + (index * space));
   do Output.printChar(ch);
   return;
   
   }
     method void guessLetter(int key) {
     var char charToCheck;
+    var int foundLetter;
 
     var int i;
 
     // tiles start at (10, 26) space = 2 for each letter;
     // go to revealedWord and if position is 0, make it a 1
     let i = 0;
+    let foundLetter = 0;
     while(i < wordLength) {
     let charToCheck = currentWord.charAt(i);
       if (charToCheck = key) {
       if(revealedWord[i] = 0) {
        let revealedWord[i] = 1;
         do drawLetter(i, charToCheck); 
-       let found = found + 1;
+       let foundWord = foundWord + 1;
+       let foundLetter = 1;
+      } else {
+      let foundLetter = 1; // letter already found so don't need to decrement guessesLeft
       }
       }
+        
       let i = i + 1;
       }
-      if (~(key = 0) & (found = 0)) {
+      if (~(key = 0) & (foundLetter= 0)) {
       let guessesLeft = guessesLeft - 1;
+      do drawLimbs(guessesLeft);
        do Output.moveCursor(22,15); // this is where guessesleft lives
     do Output.printInt(guessesLeft);
       }
-
-      if (found = wordLength) {
+  let foundLetter = 0;
+      if (foundWord = wordLength) {
       let index = index + 1;
       do clearTiles(wordLength);
       do updateCurrentWord();
       do drawTiles();
       do initRevealed();
       do updateScore();
+      do clearBody();
+      let guessesLeft = 6;
+      do Output.moveCursor(22, 15);
+      do Output.printInt(guessesLeft);
       do Output.moveCursor(12, 23);
       do Output.printString("You guessed correctly!");
       do Sys.wait(1500);
     do Output.moveCursor(12, 23);
       do Output.printString("                      "); 
   
-      let found = 0;
+      let foundWord = 0;
       }
 
     
@@ -449,6 +554,21 @@ let c = c + space;
 
   }
 
+  method void gameOver() {
+    if (score = 15) {
+    do Screen.clearScreen();
+    do Output.moveCursor(3, 15);
+    do Output.printString("Game over! You guessed all the words! ");
+    
+
+  } else {
+    do Screen.clearScreen();
+    do Output.moveCursor(3, 15);
+    do Output.printString("Game over! You lost! ");
+  }
+  return;
+  }
+
   method void run() {
 
 
@@ -456,21 +576,21 @@ let c = c + space;
 
   // run game until guessesLeft = 0, or user correctly guesses word(then move on to the next one)
   while(~(guessesLeft = 0)  /* ~(gameOver) */ ) {
-  if (score = 14) {
-    do Screen.clearScreen();
-    do Output.moveCursor(3, 15);
-    do Output.printString("Game over! You guessed all the words! ");
-
+  if (score = 15) {
+    do gameOver();
+    return;
   }
+  if (~(guessesLeft = 0)) {
     let userKey = Keyboard.keyPressed();
     if (~(userKey = 0)) {
-    do Sys.wait(200); // since keypressed its a while loop, we dont want to decrement guessesLEft in the function if the user is holding the key 
+    do Sys.wait(200); // since keypressed is a while loop, we dont want to decrement guessesLEft in the function if the user is holding the key 
     do guessLetter(userKey);
     }
     
-  }
-  return;
-  }
+  } 
 
-}
+  }
+  do gameOver();
+  return;
+}}
 
