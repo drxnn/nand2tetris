@@ -60,10 +60,7 @@ impl<'a> jack_tokenizer<'a> {
 
         let mut tokens: Vec<String> = Vec::new();
 
-        let re = Regex::new(r#""[^"]*"|\S+"#).unwrap(); // need to fix regex to include ; as as symbol and also ( / ) as separate symbols
-
-        // regex is:  this means inside the "(dont include " here)" meaning everything else other than that | S = any nonwhitespace char
-        // ?<! is negative lookbehind and exludes ; at the end
+        let re = Regex::new(r#""[^"]*"|\w+|[^\w\s]"#).unwrap();
 
         for line in file.lines() {
             let sanitized_line = line.split("//").next().unwrap_or("").trim();
@@ -73,9 +70,6 @@ impl<'a> jack_tokenizer<'a> {
                 re.find_iter(sanitized_line).for_each(|x| {
                     let mut token = x.as_str().to_string();
 
-                    if token.ends_with(";") {
-                        token.pop();
-                    }
                     println!("current token is : {}", token);
                     tokens.push(token);
                 });
