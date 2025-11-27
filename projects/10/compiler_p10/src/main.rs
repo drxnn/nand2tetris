@@ -1,4 +1,5 @@
 #![allow(unused, dead_code, non_camel_case_types)]
+use regex::Regex;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::path::PathBuf;
@@ -36,6 +37,7 @@ fn main() -> io::Result<()> {
      */
 }
 
+#[derive(PartialEq)]
 enum TOKEN_TYPE {
     KEYWORD,
     SYMBOL,
@@ -47,7 +49,7 @@ enum TOKEN_TYPE {
 struct jack_analyzer {}
 
 struct jack_tokenizer<'a> {
-    tokens: Vec<&'a str>,
+    tokens: Vec<String>,
     current_token: Option<&'a str>,
     pos: usize,
 }
@@ -56,14 +58,26 @@ impl<'a> jack_tokenizer<'a> {
     fn new(file: &'a str) -> Self {
         // sanitize lines
 
-        let mut tokens = Vec::new();
+        let mut tokens: Vec<String> = Vec::new();
+
+        let re = Regex::new(r#""[^"]*"|\S+"#).unwrap(); // need to fix regex to include ; as as symbol and also ( / ) as separate symbols
+
+        // regex is:  this means inside the "(dont include " here)" meaning everything else other than that | S = any nonwhitespace char
+        // ?<! is negative lookbehind and exludes ; at the end
+
         for line in file.lines() {
             let sanitized_line = line.split("//").next().unwrap_or("").trim();
+
             println!("line is {}", sanitized_line);
             if !sanitized_line.is_empty() {
-                sanitized_line.split(" ").for_each(|x| {
-                    println!("x is {}", x);
-                    tokens.push(x);
+                re.find_iter(sanitized_line).for_each(|x| {
+                    let mut token = x.as_str().to_string();
+
+                    if token.ends_with(";") {
+                        token.pop();
+                    }
+                    println!("current token is : {}", token);
+                    tokens.push(token);
                 });
             }
         }
@@ -79,9 +93,9 @@ impl<'a> jack_tokenizer<'a> {
         self.pos < self.tokens.len()
     }
 
-    fn advance(&mut self) {
+    fn advance(&'a mut self) {
         if self.has_more_tokens() {
-            self.current_token = Some(self.tokens[self.pos]);
+            self.current_token = Some(self.tokens[self.pos].as_ref());
             self.pos += 1;
         } else {
             self.current_token = None
@@ -141,6 +155,38 @@ impl<'a> jack_tokenizer<'a> {
             }
 
             _ => TOKEN_TYPE::NONE,
+        }
+    }
+
+    fn keyword(&self) -> Option<&str> {
+        match self.token_type() {
+            TOKEN_TYPE::KEYWORD => self.current_token,
+            _ => None,
+        }
+    }
+
+    fn symbol(&self) -> Option<&str> {
+        match self.token_type() {
+            TOKEN_TYPE::SYMBOL => self.current_token,
+            _ => None,
+        }
+    }
+    fn identifier(&self) -> Option<&str> {
+        match self.token_type() {
+            TOKEN_TYPE::IDENTIFIER => self.current_token,
+            _ => None,
+        }
+    }
+    fn int_val(&self) -> Option<u32> {
+        match self.token_type() {
+            TOKEN_TYPE::INT_CONST => self.current_token.and_then(|x| x.parse::<u32>().ok()),
+            _ => None,
+        }
+    }
+    fn string_val(&self) -> Option<&str> {
+        match self.token_type() {
+            TOKEN_TYPE::STRING_CONST => self.current_token,
+            _ => None,
         }
     }
 }
