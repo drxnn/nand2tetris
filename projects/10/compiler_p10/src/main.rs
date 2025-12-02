@@ -87,6 +87,7 @@ impl jack_tokenizer {
             if !sanitized_line.is_empty() {
                 re.find_iter(sanitized_line).for_each(|x| {
                     let mut token = x.as_str().to_string();
+
                     j_tokenizer.tokens.push(token);
                 });
             }
@@ -96,8 +97,15 @@ impl jack_tokenizer {
     }
 
     fn write_token_file(&mut self) {
+        if self.token_type() == TOKEN_TYPE::SYMBOL {
+            self.symbol();
+        }
+
         let token_type = self.token_type_as_str();
+        println!("token type is: {}", token_type);
+
         let token = self.current_token.as_ref().unwrap();
+
         let write_token = format!("<{token_type}> {token} </{token_type}>\n");
         self.tokens_file
             .as_mut()
@@ -144,14 +152,14 @@ impl jack_tokenizer {
             "while",
             "return",
         ];
-        const SYMBOLS: [&str; 19] = [
+        const SYMBOLS: [&str; 23] = [
             "{", "}", "(", ")", "[", "]", ".", ",", ";", "+", "-", "*", "/", "&", "|", "<", ">",
-            "=", "~",
+            "=", "~", "&1t;", "sgt;", "squot;", "samp;",
         ];
 
         match &self.current_token {
             Some(x) if KEYWORDS.contains(&x.as_ref()) => TOKEN_TYPE::KEYWORD,
-            Some(x) if x.len() == 1 && SYMBOLS.contains(&x.as_ref()) => TOKEN_TYPE::SYMBOL,
+            Some(x) if SYMBOLS.contains(&x.as_ref()) => TOKEN_TYPE::SYMBOL,
             Some(x) if x.starts_with('"') && x.ends_with('"') && x.len() >= 2 => {
                 TOKEN_TYPE::STRING_CONST
             }
@@ -192,10 +200,24 @@ impl jack_tokenizer {
         }
     }
 
-    fn symbol(&self) -> Option<String> {
-        match self.token_type() {
-            TOKEN_TYPE::SYMBOL => self.current_token.clone(),
-            _ => None,
+    fn symbol(&mut self) -> Option<String> {
+        /*
+                                                                                                                        four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
+and thus they cannot appear as data in XML files. 
+To solve the problem, we require the tokenizer to output these tokens as &1t;, sgt;, squot;, and samp;, respectively. */
+        if let TOKEN_TYPE::SYMBOL = self.token_type() {
+            let new_val = match self.current_token.as_ref().unwrap().as_ref() {
+                "<" => Some("&1t;".to_string()),
+                ">" => Some("sgt;".to_string()),
+                "\"" => Some("squot;".to_string()),
+                "*" => Some("samp;".to_string()),
+                _ => self.current_token.clone(),
+            };
+            self.current_token = new_val.clone();
+
+            new_val
+        } else {
+            None
         }
     }
     fn identifier(&self) -> Option<String> {
@@ -249,6 +271,11 @@ impl compilation_engine {
             file: Some(BufWriter::new(file)),
         };
         Ok(writer)
+    }
+
+    fn process(str: &str) {
+        // helper function
+        unimplemented!()
     }
 
     fn compile_class() {
