@@ -150,7 +150,7 @@
 <symbol> + </symbol>
 <identifier> size </identifier>
 <symbol> ) </symbol>
-<symbol> &1t; </symbol>
+<symbol> &lt; </symbol>
 <integerConstant> 254 </integerConstant>
 <symbol> ) </symbol>
 <symbol> & </symbol>
@@ -160,7 +160,7 @@
 <symbol> + </symbol>
 <identifier> size </identifier>
 <symbol> ) </symbol>
-<symbol> &1t; </symbol>
+<symbol> &lt; </symbol>
 <integerConstant> 510 </integerConstant>
 <symbol> ) </symbol>
 <symbol> ) </symbol>
@@ -315,7 +315,7 @@
 <symbol> + </symbol>
 <identifier> size </identifier>
 <symbol> ) </symbol>
-<symbol> &1t; </symbol>
+<symbol> &lt; </symbol>
 <integerConstant> 254 </integerConstant>
 <symbol> ) </symbol>
 <symbol> { </symbol>
@@ -483,7 +483,7 @@
 <symbol> + </symbol>
 <identifier> size </identifier>
 <symbol> ) </symbol>
-<symbol> &1t; </symbol>
+<symbol> &lt; </symbol>
 <integerConstant> 510 </integerConstant>
 <symbol> ) </symbol>
 <symbol> { </symbol>

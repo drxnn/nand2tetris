@@ -154,7 +154,7 @@ impl jack_tokenizer {
         ];
         const SYMBOLS: [&str; 23] = [
             "{", "}", "(", ")", "[", "]", ".", ",", ";", "+", "-", "*", "/", "&", "|", "<", ">",
-            "=", "~", "&1t;", "sgt;", "squot;", "samp;",
+            "=", "~", "&lt;", "sgt;", "squot;", "samp;",
         ];
 
         match &self.current_token {
@@ -202,12 +202,12 @@ impl jack_tokenizer {
 
     fn symbol(&mut self) -> Option<String> {
         /*
-                                                                                                                        four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
+                                                                                                                                        four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
 and thus they cannot appear as data in XML files. 
 To solve the problem, we require the tokenizer to output these tokens as &1t;, sgt;, squot;, and samp;, respectively. */
         if let TOKEN_TYPE::SYMBOL = self.token_type() {
             let new_val = match self.current_token.as_ref().unwrap().as_ref() {
-                "<" => Some("&1t;".to_string()),
+                "<" => Some("&lt;".to_string()),
                 ">" => Some("sgt;".to_string()),
                 "\"" => Some("squot;".to_string()),
                 "*" => Some("samp;".to_string()),
