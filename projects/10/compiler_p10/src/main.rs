@@ -105,6 +105,7 @@ impl jack_tokenizer {
         println!("token type is: {}", token_type);
 
         let token = self.current_token.as_ref().unwrap();
+        println!("token is {}", token);
 
         let write_token = format!("<{token_type}> {token} </{token_type}>\n");
         self.tokens_file
@@ -202,7 +203,7 @@ impl jack_tokenizer {
 
     fn symbol(&mut self) -> Option<String> {
         /*
-                                                                                                                                        four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
+                four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
 and thus they cannot appear as data in XML files. 
 To solve the problem, we require the tokenizer to output these tokens as &1t;, sgt;, squot;, and samp;, respectively. */
         if let TOKEN_TYPE::SYMBOL = self.token_type() {
@@ -210,7 +211,7 @@ To solve the problem, we require the tokenizer to output these tokens as &1t;, s
                 "<" => Some("&lt;".to_string()),
                 ">" => Some("sgt;".to_string()),
                 "\"" => Some("squot;".to_string()),
-                "*" => Some("samp;".to_string()),
+                "&" => Some("samp;".to_string()),
                 _ => self.current_token.clone(),
             };
             self.current_token = new_val.clone();
