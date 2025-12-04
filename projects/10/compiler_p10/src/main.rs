@@ -20,6 +20,8 @@ fn main() -> io::Result<()> {
             jack_t.advance();
             jack_t.write_token_file();
         }
+        // move stuff around later
+        let c_engine = compilation_engine::new(jack_t.tokens);
     }
 
     Ok(())
@@ -41,19 +43,38 @@ fn main() -> io::Result<()> {
      */
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Debug)]
 enum TOKEN_TYPE {
     KEYWORD,
     SYMBOL,
     IDENTIFIER,
     INT_CONST,
     STRING_CONST,
-    NONE,
+    NONE, // REMOVE NONE LATER !!!
+}
+
+impl TOKEN_TYPE {
+    fn as_str(&self) -> &str {
+        match self {
+            TOKEN_TYPE::KEYWORD => "keyword",
+            TOKEN_TYPE::SYMBOL => "symbol",
+            TOKEN_TYPE::IDENTIFIER => "identifier",
+            TOKEN_TYPE::INT_CONST => "integerConstant",
+            TOKEN_TYPE::STRING_CONST => "stringConstant",
+            _ => "",
+        }
+    }
+}
+
+#[derive(Clone)]
+struct Token {
+    value: String,
+    kind: TOKEN_TYPE,
 }
 struct jack_analyzer {}
 
 struct jack_tokenizer {
-    tokens: Vec<String>,
+    tokens: Vec<Token>,
     current_token: Option<String>,
     pos: usize,
     tokens_file: Option<File>,
@@ -63,7 +84,7 @@ impl jack_tokenizer {
     fn new(file: &str) -> Self {
         // sanitize lines
 
-        let mut tokens: Vec<String> = Vec::new();
+        let mut tokens: Vec<Token> = Vec::new();
 
         let mut file_tokens = OpenOptions::new()
             .truncate(true)
@@ -87,8 +108,12 @@ impl jack_tokenizer {
             if !sanitized_line.is_empty() {
                 re.find_iter(sanitized_line).for_each(|x| {
                     let mut token = x.as_str().to_string();
+                    let mut token_kind = j_tokenizer.token_type();
 
-                    j_tokenizer.tokens.push(token);
+                    j_tokenizer.tokens.push(Token {
+                        value: token,
+                        kind: token_kind,
+                    });
                 });
             }
         }
@@ -120,7 +145,7 @@ impl jack_tokenizer {
 
     fn advance(&mut self) {
         if self.has_more_tokens() {
-            self.current_token = Some(self.tokens[self.pos].clone());
+            self.current_token = Some(self.tokens[self.pos].value.clone());
             self.pos += 1;
         } else {
             self.current_token = None
@@ -203,7 +228,7 @@ impl jack_tokenizer {
 
     fn symbol(&mut self) -> Option<String> {
         /*
-                four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
 and thus they cannot appear as data in XML files. 
 To solve the problem, we require the tokenizer to output these tokens as &1t;, sgt;, squot;, and samp;, respectively. */
         if let TOKEN_TYPE::SYMBOL = self.token_type() {
@@ -254,13 +279,16 @@ Thus, compilexxx () may only be called if indeed xxx is the next syntactic eleme
 
 struct compilation_engine {
     file: Option<BufWriter<File>>,
+    tokens: Vec<Token>,
+    pos: usize,
 }
 
 /*Six nonterminal grammar elements ( subroutineCall, subroutineName, varName, className, type, statement )
 have no corresponding compilexxx methods;
 these terminals are parsed directly, by other parsing methods that handle them; */
 impl compilation_engine {
-    fn new() -> io::Result<Self> {
+    fn new(tokens: Vec<Token>) -> io::Result<Self> {
+        // move tokens from tokenizer to compilation engine
         let file = OpenOptions::new()
             .truncate(true)
             .write(true)
@@ -270,55 +298,143 @@ impl compilation_engine {
 
         let mut writer = Self {
             file: Some(BufWriter::new(file)),
+            tokens: tokens,
+            pos: 0,
         };
         Ok(writer)
     }
 
-    fn process(str: &str) {
-        // helper function
-        unimplemented!()
+    fn has_more_tokens(&self) -> bool {
+        self.pos < self.tokens.len()
     }
 
-    fn compile_class() {
-        unimplemented!()
+    fn advance(&mut self) -> Option<Token> {
+        if self.pos >= self.tokens.len() {
+            return None;
+        }
+        let idx = self.pos;
+        self.pos += 1;
+        Some(self.tokens[idx].clone())
+    }
+    fn peek(&self) -> Option<Token> {
+        self.tokens.get(self.pos).cloned()
+    }
+
+    fn write_open_tag(&mut self, s: &str) -> io::Result<()> {
+        let s = format!("<{s}>");
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(s.as_bytes())?;
+        }
+        Ok(())
+    }
+    fn write_close_tag(&mut self, s: &str) -> io::Result<()> {
+        let s = format!("</{s}>");
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(s.as_bytes())?;
+        };
+
+        Ok(())
+    }
+    fn write_token(&mut self, token: &str, tag: &str) -> io::Result<()> {
+        let s = format!("<{tag}> {token} </{tag}>");
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(s.as_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn compile_class(&mut self) -> io::Result<()> {
+        //class:          class'className '{'classVarDec* subroutineDec* '}'
+        //classVarDec:    (‘static'|'field') type varName (',' varName)* ';'
+        // only call compile_class if curr_token is class
+
+        self.write_open_tag("class");
+        let class_tok = self.advance().expect("expected 'class' token");
+
+        self.write_token(&class_tok.value, class_tok.kind.as_str());
+        let class_identifier = self.advance().expect("expected 'class' name "); // word after class, then moves pos
+        self.write_token(&class_identifier.value, class_identifier.kind.as_str());
+        let open_bracket = self.advance().expect("expected '{' bracket ");
+        self.write_token(&open_bracket.value, open_bracket.kind.as_str());
+
+        // peek might panic, will fix later
+        while let Some(tok) = self.peek() {
+            if tok.value == "static" || tok.value == "field" {
+                self.write_open_tag("classVarDec")?;
+                loop {
+                    match self.advance() {
+                        Some(t) => {
+                            self.write_token(&t.value, t.kind.as_str())?;
+                            if t.value == ";" {
+                                break;
+                            }
+                        }
+                        None => {
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::UnexpectedEof,
+                                "unexpected eof error while parsing classVarDec",
+                            ));
+                        }
+                    }
+                }
+                self.write_close_tag("classVarDec")?;
+            } else if tok.value == "constructor" || tok.value == "function" || tok.value == "method"
+            {
+                self.compile_subroutine();
+            }
+        }
+
+        self.write_close_tag("class");
+
+        Ok(())
     }
     fn compile_class_var_dec() {
+        // put code thats in compile_class here later
         unimplemented!()
     }
-    fn compile_subroutine() {
+    fn compile_subroutine(&mut self) -> io::Result<()> {
+        self.write_open_tag("subroutineDec")?;
+        let kw_1 = self
+            .advance()
+            .expect("expected kw_1, -> from subroutine method");
+        self.write_token(&kw_1.value, kw_1.kind.as_str())?;
+
+        // do
+
+        self.write_close_tag("subroutineDec")?;
+        Ok(())
+    }
+    fn compile_parameter_list(&mut self) -> io::Result<()> {
         unimplemented!()
     }
-    fn compiler_parameter_list() {
+    fn compile_var_dec(&mut self) -> io::Result<()> {
         unimplemented!()
     }
-    fn compile_var_dec() {
+    fn compile_statements(&mut self) -> io::Result<()> {
         unimplemented!()
     }
-    fn compile_statements() {
+    fn compile_do(&mut self) -> io::Result<()> {
         unimplemented!()
     }
-    fn compile_do() {
+    fn compile_let(&mut self) -> io::Result<()> {
         unimplemented!()
     }
-    fn compile_let() {
+    fn compile_while(&mut self) -> io::Result<()> {
         unimplemented!()
     }
-    fn compile_while() {
+    fn compile_return(&mut self) -> io::Result<()> {
         unimplemented!()
     }
-    fn compile_return() {
+    fn compile_if(&mut self) -> io::Result<()> {
         unimplemented!()
     }
-    fn compile_if() {
+    fn compile_expression(&mut self) -> io::Result<()> {
         unimplemented!()
     }
-    fn compile_expression() {
+    fn compile_term(&mut self) -> io::Result<()> {
         unimplemented!()
     }
-    fn compile_term() {
-        unimplemented!()
-    }
-    fn compile_expression_list() {
+    fn compile_expression_list(&mut self) -> io::Result<()> {
         unimplemented!()
     }
 }
