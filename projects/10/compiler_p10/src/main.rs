@@ -228,7 +228,7 @@ impl jack_tokenizer {
 
     fn symbol(&mut self) -> Option<String> {
         /*
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
 and thus they cannot appear as data in XML files. 
 To solve the problem, we require the tokenizer to output these tokens as &1t;, sgt;, squot;, and samp;, respectively. */
         if let TOKEN_TYPE::SYMBOL = self.token_type() {
@@ -318,6 +318,9 @@ impl compilation_engine {
     }
     fn peek(&self) -> Option<Token> {
         self.tokens.get(self.pos).cloned()
+    }
+    fn peek_ahead(&self) -> Option<Token> {
+        self.tokens.get(self.pos + 1).cloned()
     }
 
     fn write_open_tag(&mut self, s: &str) -> io::Result<()> {
@@ -428,7 +431,7 @@ impl compilation_engine {
             opening_parenthesis.kind.as_str(),
         )?;
 
-        self.compile_parameter_list()?; // handles params(has to look in advance if token is ")" <--- handle case);
+        self.compile_parameter_list()?;
 
         let closing_parenthesis = self
             .advance()
@@ -438,12 +441,15 @@ impl compilation_engine {
             closing_parenthesis.kind.as_str(),
         )?;
 
+        // subroutineBody handle:
         let opening_bracket = self
             .advance()
             .expect("expected { , -> from subroutine method");
         self.write_token(&opening_bracket.value, opening_bracket.kind.as_str())?;
 
-        // handle body here then close bracket at the end
+        self.compile_var_dec(); // loop inside to compile statements all vars
+
+        self.compile_statements(); // loop inside to compile all statements
 
         let closing_bracket = self
             .advance()
@@ -455,7 +461,22 @@ impl compilation_engine {
         Ok(())
     }
     fn compile_parameter_list(&mut self) -> io::Result<()> {
-        unimplemented!()
+        // when this method begins, let t = self.advance will be the type of the param
+        self.write_open_tag("parameterList")?;
+
+        while let Some(t) = self.peek() {
+            if t.value == ")" {
+                break;
+            }
+
+            let tok = self
+                .advance()
+                .expect("from compile_paramlist -> expected token");
+            self.write_token(&tok.value, tok.kind.as_str())?;
+        }
+        self.write_close_tag("parameterList")?;
+
+        Ok(())
     }
     fn compile_var_dec(&mut self) -> io::Result<()> {
         unimplemented!()
