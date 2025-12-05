@@ -228,7 +228,7 @@ impl jack_tokenizer {
 
     fn symbol(&mut self) -> Option<String> {
         /*
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
 and thus they cannot appear as data in XML files. 
 To solve the problem, we require the tokenizer to output these tokens as &1t;, sgt;, squot;, and samp;, respectively. */
         if let TOKEN_TYPE::SYMBOL = self.token_type() {
@@ -668,11 +668,38 @@ impl compilation_engine {
         Ok(())
     }
     fn compile_return(&mut self) -> io::Result<()> {
+        //‘return’ expression? ';'
+        self.write_open_tag("returnStatement")?;
+
+        let return_tok = self.expect_advance("return")?;
+        self.write_token(&return_tok.value, return_tok.kind.as_str())?;
+        if let Some(t) = self.peek() {
+            if t.value != ";" {
+                self.compile_expression()?;
+            }
+        }
+        let semic_token = self.expect_advance(";")?;
+        self.write_token(&semic_token.value, semic_token.kind.as_str())?;
+
+        self.write_close_tag("returnStatement")?;
         Ok(())
     }
 
     fn compile_do(&mut self) -> io::Result<()> {
-        unimplemented!()
+        //doStatement: ‘do' subroutineCall ';'
+        self.write_open_tag("doStatement")?;
+
+        let do_tok = self.expect_advance("do")?;
+        self.write_token(&do_tok.value, do_tok.kind.as_str())?;
+
+        // self.compile_subroutine() // call
+
+        let semic_token = self.expect_advance(";")?;
+        self.write_token(&semic_token.value, semic_token.kind.as_str())?;
+
+        self.write_close_tag("doStatement")?;
+
+        Ok(())
     }
     fn compile_expression(&mut self) -> io::Result<()> {
         unimplemented!()
