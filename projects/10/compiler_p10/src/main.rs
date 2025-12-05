@@ -228,7 +228,7 @@ impl jack_tokenizer {
 
     fn symbol(&mut self) -> Option<String> {
         /*
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
 and thus they cannot appear as data in XML files. 
 To solve the problem, we require the tokenizer to output these tokens as &1t;, sgt;, squot;, and samp;, respectively. */
         if let TOKEN_TYPE::SYMBOL = self.token_type() {
@@ -287,6 +287,10 @@ struct compilation_engine {
 have no corresponding compilexxx methods;
 these terminals are parsed directly, by other parsing methods that handle them; */
 impl compilation_engine {
+    /* token validation is missing
+    assume files are valid Jack
+        will add later at the end
+     */
     fn new(tokens: Vec<Token>) -> io::Result<Self> {
         // move tokens from tokenizer to compilation engine
         let file = OpenOptions::new()
@@ -361,7 +365,7 @@ impl compilation_engine {
         self.write_token(&open_bracket.value, open_bracket.kind.as_str());
 
         // peek might panic, will fix later
-        while let Some(tok) = self.peek() {
+        while let Some(tok) = self.advance() {
             if tok.value == "static" || tok.value == "field" {
                 self.write_open_tag("classVarDec")?;
                 loop {
@@ -461,7 +465,6 @@ impl compilation_engine {
         Ok(())
     }
     fn compile_parameter_list(&mut self) -> io::Result<()> {
-        // when this method begins, let t = self.advance will be the type of the param
         self.write_open_tag("parameterList")?;
 
         while let Some(t) = self.peek() {
@@ -479,16 +482,105 @@ impl compilation_engine {
         Ok(())
     }
     fn compile_var_dec(&mut self) -> io::Result<()> {
-        unimplemented!()
+        // varDec: 'var' type varName (',' varName)* ';'
+
+        // add token validation later
+        while let Some(tok) = self.peek() {
+            if tok.value == "var" {
+                self.write_open_tag("varDec")?;
+                loop {
+                    match self.advance() {
+                        Some(t) => {
+                            self.write_token(&t.value, t.kind.as_str())?;
+                            if t.value == ";" {
+                                break;
+                            }
+                        }
+                        None => {
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::UnexpectedEof,
+                                "unexpected eof error while parsing classVarDec",
+                            ));
+                        }
+                    }
+                }
+                self.write_close_tag("varDec")?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(())
     }
     fn compile_statements(&mut self) -> io::Result<()> {
-        unimplemented!()
+        self.write_open_tag("statements")?;
+        while let Some(tok) = self.peek() {
+            if ["let", "if", "do", "while", "return"].contains(&tok.value.as_str()) {
+                // statement belw
+                match tok.value.as_str() {
+                    "let" => {
+                        self.compile_let()?;
+                    }
+                    "if" => {
+                        self.compile_if()?;
+                    }
+                    "do" => {
+                        self.compile_do()?;
+                    }
+                    "while" => {
+                        self.compile_while()?;
+                    }
+                    "return" => {
+                        self.compile_return()?;
+                    }
+                    _ => {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::UnexpectedEof,
+                            "unexpected token error while parsing statment in compile_statemens()",
+                        ));
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+
+        self.write_close_tag("statements")?;
+        Ok(())
     }
-    fn compile_do(&mut self) -> io::Result<()> {
-        unimplemented!()
-    }
+
     fn compile_let(&mut self) -> io::Result<()> {
-        unimplemented!()
+        // 'let' varName ('[' expression ']')? '=' expression ';'
+        // ex:     let game = SquareGame.new();
+        //ex:      let arr[i+1] = x;
+        self.write_open_tag("letStatement")?;
+
+        let let_tok = self.advance().unwrap();
+        self.write_token(&let_tok.value, let_tok.kind.as_str())?;
+
+        let varname_tok = self.advance().unwrap();
+        self.write_token(&varname_tok.value, varname_tok.kind.as_str())?;
+
+        if self.peek().unwrap().value == "[" {
+            let open_bracket = self.advance().unwrap();
+            self.write_token(&open_bracket.value, open_bracket.kind.as_str())?;
+            self.compile_expression()?;
+            let close_bracket = self.advance().unwrap();
+            self.write_token(&close_bracket.value, close_bracket.kind.as_str())?;
+        }
+        let eq_token = self.advance().unwrap();
+        self.write_token(&eq_token.value, eq_token.kind.as_str())?;
+        self.compile_expression()?;
+        let semic_token = self.advance().unwrap();
+        self.write_token(&semic_token.value, semic_token.kind.as_str())?;
+
+        self.write_close_tag("letStatement")?;
+        Ok(())
+    }
+    fn compile_if(&mut self) -> io::Result<()> {
+        // 'if''(' expression ')''{' statements '}' ('else''{' statements '}' )?
+
+        Ok(())
     }
     fn compile_while(&mut self) -> io::Result<()> {
         unimplemented!()
@@ -496,7 +588,8 @@ impl compilation_engine {
     fn compile_return(&mut self) -> io::Result<()> {
         unimplemented!()
     }
-    fn compile_if(&mut self) -> io::Result<()> {
+
+    fn compile_do(&mut self) -> io::Result<()> {
         unimplemented!()
     }
     fn compile_expression(&mut self) -> io::Result<()> {
