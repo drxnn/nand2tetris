@@ -228,7 +228,7 @@ impl jack_tokenizer {
 
     fn symbol(&mut self) -> Option<String> {
         /*
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
 and thus they cannot appear as data in XML files. 
 To solve the problem, we require the tokenizer to output these tokens as &1t;, sgt;, squot;, and samp;, respectively. */
         if let TOKEN_TYPE::SYMBOL = self.token_type() {
@@ -319,6 +319,16 @@ impl compilation_engine {
         let idx = self.pos;
         self.pos += 1;
         Some(self.tokens[idx].clone())
+    }
+
+    // switch with the unchecked advances later onm
+    fn expect_advance(&mut self, expected: &str) -> io::Result<Token> {
+        self.advance().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                format!("expected {}", expected),
+            )
+        })
     }
     fn peek(&self) -> Option<Token> {
         self.tokens.get(self.pos).cloned()
@@ -626,11 +636,39 @@ impl compilation_engine {
         Ok(())
     }
     fn compile_while(&mut self) -> io::Result<()> {
-        //
+        // 'while''(' expression ')''{' statements '}'
+        self.write_open_tag("whileStatement")?;
+
+        let while_tok = self.expect_advance("while")?;
+        self.write_token(&while_tok.value, while_tok.kind.as_str())?;
+
+        let open_paren_token = self.advance().unwrap();
+
+        self.write_token(&open_paren_token.value, open_paren_token.kind.as_str())?;
+
+        self.compile_expression()?;
+
+        let close_paren_token = self.advance().unwrap();
+
+        self.write_token(&close_paren_token.value, close_paren_token.kind.as_str())?;
+
+        let open_bracket_token = self.advance().unwrap();
+        self.write_token(&open_bracket_token.value, open_bracket_token.kind.as_str())?;
+
+        self.compile_statements()?;
+
+        let close_bracket_token = self.advance().unwrap();
+        self.write_token(
+            &close_bracket_token.value,
+            close_bracket_token.kind.as_str(),
+        )?;
+
+        self.write_close_tag("whileStatement")?;
+
         Ok(())
     }
     fn compile_return(&mut self) -> io::Result<()> {
-        unimplemented!()
+        Ok(())
     }
 
     fn compile_do(&mut self) -> io::Result<()> {
