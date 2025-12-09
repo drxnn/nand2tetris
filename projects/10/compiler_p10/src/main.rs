@@ -242,7 +242,7 @@ impl jack_tokenizer {
 
     fn symbol(&mut self) -> Option<String> {
         /*
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
 and thus they cannot appear as data in XML files. 
 To solve the problem, we require the tokenizer to output these tokens as &1t;, sgt;, squot;, and samp;, respectively. */
         if let TOKEN_TYPE::SYMBOL = self.token_type() {
@@ -335,14 +335,42 @@ impl compilation_engine {
         Some(self.tokens[idx].clone())
     }
 
-    // switch with the unchecked advances later onm
-    fn expect_advance(&mut self, expected: &str) -> io::Result<Token> {
-        self.advance().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                format!("expected {}", expected),
-            )
-        })
+    fn expect_kind(&mut self, expected_kind: &str) -> io::Result<Token> {
+        let token_to_check = self.advance().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::UnexpectedEof, format!("token missing, eof"))
+        })?;
+
+        if token_to_check.kind.as_str() == expected_kind {
+            Ok(token_to_check)
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "unexpected token kind: '{}' (value: '{}'), expected '{}'",
+                    token_to_check.kind.as_str(),
+                    token_to_check.value,
+                    expected_kind
+                ),
+            ))
+        }
+    }
+
+    fn expect_value(&mut self, expected_value: &str) -> io::Result<Token> {
+        let token_to_check = self.advance().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::UnexpectedEof, format!("token missing, eof"))
+        })?;
+
+        if token_to_check.value == expected_value {
+            Ok(token_to_check)
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "unexpected value: {}, expected: {}",
+                    token_to_check.value, expected_value
+                ),
+            ))
+        }
     }
 
     fn expect_any_advance(&mut self, expected: &[&str]) -> io::Result<Token> {
@@ -679,7 +707,7 @@ impl compilation_engine {
         // 'while''(' expression ')''{' statements '}'
         self.write_open_tag("whileStatement")?;
 
-        let while_tok = self.expect_advance("while")?;
+        let while_tok = self.expect_value("while")?;
         self.write_token(&while_tok.value, while_tok.kind.as_str())?;
 
         let open_paren_token = self.advance().unwrap();
@@ -711,14 +739,14 @@ impl compilation_engine {
         //‘return’ expression? ';'
         self.write_open_tag("returnStatement")?;
 
-        let return_tok = self.expect_advance("return")?;
+        let return_tok = self.expect_value("return")?;
         self.write_token(&return_tok.value, return_tok.kind.as_str())?;
         if let Some(t) = self.peek() {
             if t.value != ";" {
                 self.compile_expression()?;
             }
         }
-        let semic_token = self.expect_advance(";")?;
+        let semic_token = self.expect_value(";")?;
         self.write_token(&semic_token.value, semic_token.kind.as_str())?;
 
         self.write_close_tag("returnStatement")?;
@@ -729,12 +757,12 @@ impl compilation_engine {
         //doStatement: ‘do' subroutineCall ';'
         self.write_open_tag("doStatement")?;
 
-        let do_tok = self.expect_advance("do")?;
+        let do_tok = self.expect_value("do")?;
         self.write_token(&do_tok.value, do_tok.kind.as_str())?;
 
         self.compile_subroutine();
 
-        let semic_token = self.expect_advance(";")?;
+        let semic_token = self.expect_value(";")?;
         self.write_token(&semic_token.value, semic_token.kind.as_str())?;
 
         self.write_close_tag("doStatement")?;
@@ -764,11 +792,85 @@ impl compilation_engine {
     fn compile_term(&mut self) -> io::Result<()> {
         self.write_open_tag("term")?;
 
+        if let Some(first_tok) = self.advance() {
+            match first_tok.kind.as_str() {
+                "identifier" => {
+                    self.write_token(&first_tok.value, first_tok.kind.as_str())?;
+                    if let Some(symbol_ahead) = self.peek() {
+                        match symbol_ahead.value.as_str() {
+                            "[" => {
+                                let open_bracket = self.expect_value("[")?;
+                                self.write_token(&open_bracket.value, open_bracket.kind.as_str())?;
+
+                                self.compile_expression()?;
+                                let close_bracket = self.expect_value("]")?;
+                                self.write_token(
+                                    &close_bracket.value,
+                                    close_bracket.kind.as_str(),
+                                )?;
+                            }
+                            "(" => {
+                                let open_paren = self.expect_value("(")?;
+                                self.write_token(&open_paren.value, open_paren.kind.as_str())?;
+                                self.compile_expression_list()?;
+                                let close_paren = self.expect_value(")")?;
+                                self.write_token(&close_paren.value, close_paren.kind.as_str())?;
+                            }
+                            "." => {
+                                let dot_token = self.expect_value(".")?;
+                                self.write_token(&dot_token.value, dot_token.kind.as_str())?;
+                                let subroutine_name_token = self.expect_kind("identifier")?;
+
+                                self.write_token(
+                                    &subroutine_name_token.value,
+                                    subroutine_name_token.kind.as_str(),
+                                )?;
+                                let open_paren = self.expect_value("(")?;
+                                self.write_token(&open_paren.value, open_paren.kind.as_str())?;
+                                self.compile_expression_list()?;
+                                let close_paren = self.expect_value(")")?;
+                                self.write_token(&close_paren.value, close_paren.kind.as_str())?;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                "integerConstant" | "stringConstant" => {
+                    self.write_token(&first_tok.value, first_tok.kind.as_str())?;
+                }
+                "symbol" => match first_tok.value.as_str() {
+                    "(" => {
+                        self.write_token(&first_tok.value, first_tok.kind.as_str())?;
+                        self.compile_expression()?;
+                        let close_paren = self.expect_value(")")?;
+                        self.write_token(&close_paren.value, close_paren.kind.as_str())?;
+                    }
+                    "-" | "~" => {
+                        self.write_token(&first_tok.value, first_tok.kind.as_str())?;
+                        self.compile_term()?;
+                    }
+                    _ => {}
+                },
+                _ => {
+                    const KEYWORD_CONST: [&str; 4] = ["true", "false", "null", "this"];
+                    if KEYWORD_CONST.contains(&first_tok.value.as_str()) {
+                        self.write_token(&first_tok.value, "keyword")?;
+                    }
+                }
+            }
+        }
+
         self.write_close_tag("term")?;
 
         Ok(())
     }
     fn compile_expression_list(&mut self) -> io::Result<()> {
-        unimplemented!()
+        //(expression (',' expression)* )?
+        self.write_open_tag("expressionList")?;
+
+        // recursively check here
+
+        self.write_close_tag("expressionList")?;
+        Ok(())
     }
 }
