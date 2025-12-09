@@ -4,6 +4,7 @@ use regex::Regex;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
+use std::thread::ThreadId;
 use std::{env, io};
 
 fn main() -> io::Result<()> {
@@ -52,6 +53,19 @@ enum TOKEN_TYPE {
     STRING_CONST,
     NONE, // REMOVE NONE LATER !!!
 }
+
+// unnecessary right now
+
+// enum TERM_TYPES {
+//     INTEGER_CONST,
+//     STRING_CONST,
+//     KEYWORD_CONST,
+//     VAR_NAME,
+//     VAR_NAME_EXPRESSION,
+//     SUBROUTINE_CALL,
+//     EXPRESSION,
+//     UNARY_OP,
+// }
 
 impl TOKEN_TYPE {
     fn as_str(&self) -> &str {
@@ -228,7 +242,7 @@ impl jack_tokenizer {
 
     fn symbol(&mut self) -> Option<String> {
         /*
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
 and thus they cannot appear as data in XML files. 
 To solve the problem, we require the tokenizer to output these tokens as &1t;, sgt;, squot;, and samp;, respectively. */
         if let TOKEN_TYPE::SYMBOL = self.token_type() {
@@ -329,6 +343,32 @@ impl compilation_engine {
                 format!("expected {}", expected),
             )
         })
+    }
+
+    fn expect_any_advance(&mut self, expected: &[&str]) -> io::Result<Token> {
+        let tok = self.advance().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                format!("expected one of {:?}", expected),
+            )
+        })?;
+        if expected.contains(&&tok.value.as_str()) {
+            Ok(tok)
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "expected one of {:?}, found '{}' instead",
+                    expected, tok.value
+                ),
+            ))
+        }
+    }
+
+    fn is_operator(&mut self) -> bool {
+        let operators: [&str; 9] = ["+", "-", "*", "/", "&", "|", "<", ">", "="];
+        self.peek_ahead()
+            .is_some_and(|x| operators.contains(&x.value.as_str()))
     }
     fn peek(&self) -> Option<Token> {
         self.tokens.get(self.pos).cloned()
@@ -692,7 +732,7 @@ impl compilation_engine {
         let do_tok = self.expect_advance("do")?;
         self.write_token(&do_tok.value, do_tok.kind.as_str())?;
 
-        // self.compile_subroutine() // call
+        self.compile_subroutine();
 
         let semic_token = self.expect_advance(";")?;
         self.write_token(&semic_token.value, semic_token.kind.as_str())?;
@@ -701,11 +741,32 @@ impl compilation_engine {
 
         Ok(())
     }
+
     fn compile_expression(&mut self) -> io::Result<()> {
-        unimplemented!()
+        /*
+             term: integerConstant | stringConstant | keywordConstant | varName
+             | varName '[' expression ']' | subroutineCall |'(' expression ')'| unaryOp term
+        */
+        self.write_open_tag("expression")?;
+        self.compile_term()?;
+        // maybe use while loop in case of multiple (op term)*
+
+        while self.is_operator() {
+            let operator_tok = self.advance().unwrap(); // ok because we looked ahead
+            self.write_token(&operator_tok.value, operator_tok.kind.as_str())?;
+            self.compile_term()?;
+        }
+
+        self.write_close_tag("expression")?;
+        Ok(())
     }
+
     fn compile_term(&mut self) -> io::Result<()> {
-        unimplemented!()
+        self.write_open_tag("term")?;
+
+        self.write_close_tag("term")?;
+
+        Ok(())
     }
     fn compile_expression_list(&mut self) -> io::Result<()> {
         unimplemented!()
