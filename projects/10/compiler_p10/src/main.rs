@@ -222,7 +222,7 @@ impl jack_tokenizer {
 
     fn symbol(&mut self) -> Option<String> {
         /*
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
 and thus they cannot appear as data in XML files. 
 To solve the problem, we require the tokenizer to output these tokens as &1t;, sgt;, squot;, and samp;, respectively. */
         if let TOKEN_TYPE::SYMBOL = self.token_type() {
@@ -591,8 +591,8 @@ impl compilation_engine {
         // 'let' varName ('[' expression ']')? '=' expression ';'
         // ex:     let game = SquareGame.new();
         //ex:      let arr[i+1] = x;
-        self.write_open_tag("letStatement")?;
         self.trace_helper("compile_let");
+        self.write_open_tag("letStatement")?;
 
         let let_tok = self.expect_value("let")?;
         self.write_token(&let_tok.value, let_tok.kind.as_str())?;
@@ -702,6 +702,8 @@ impl compilation_engine {
         let return_tok = self.expect_value("return")?;
         self.write_token(&return_tok.value, return_tok.kind.as_str())?;
         if let Some(t) = self.peek() {
+            self.trace_helper("compile_return");
+
             if t.value != ";" {
                 self.compile_expression()?;
             }
@@ -728,6 +730,7 @@ impl compilation_engine {
         if let Some(t) = self.peek() {
             match t.value.as_str() {
                 "(" => {
+                    println!("this ran here");
                     let open_paren = self.expect_value("(")?;
                     self.write_token(&open_paren.value, open_paren.kind.as_str())?;
                     self.compile_expression_list()?;
@@ -735,6 +738,7 @@ impl compilation_engine {
                     self.write_token(&close_paren.value, close_paren.kind.as_str())?;
                 }
                 "." => {
+                    println!("this ran here");
                     let dot_tok = self.expect_value(".")?;
                     self.write_token(&dot_tok.value, dot_tok.kind.as_str())?;
                     let subroutine_name = self.expect_kind("identifier")?;
@@ -748,10 +752,11 @@ impl compilation_engine {
                 _ => {}
             }
         }
-        // self.compile_subroutine(); // <- the fuck is this lol
 
         let semic_token = self.expect_value(";")?;
         self.write_token(&semic_token.value, semic_token.kind.as_str())?;
+
+        println!("checking to see if I reach here");
 
         self.write_close_tag("doStatement")?;
 
@@ -760,6 +765,7 @@ impl compilation_engine {
 
     fn compile_expression(&mut self) -> io::Result<()> {
         self.write_open_tag("expression")?;
+
         self.trace_helper("compile_expression");
         self.compile_term()?;
 
@@ -853,17 +859,20 @@ impl compilation_engine {
         //(expression (',' expression)* )?
         self.write_open_tag("expressionList")?;
 
-        // recursively check here
-        // how to decide whether to call comp_exp?
-        if let Some(tok) = self.peek_ahead() {
+        if let Some(tok) = self.peek() {
             self.trace_helper("compile_expression_list");
             match tok.value.as_str() {
                 ")" => {} // empty expressions, do nothing
                 _ => {
+                    println!(
+                        "we have reached here, value is: {}. kind is: {}",
+                        tok.value,
+                        tok.kind.as_str()
+                    );
                     self.compile_expression()?;
 
                     loop {
-                        if let Some(t) = self.peek_ahead() {
+                        if let Some(t) = self.peek() {
                             match t.value.as_str() {
                                 "," => {
                                     let comma = self.expect_value(",")?;
@@ -872,6 +881,8 @@ impl compilation_engine {
                                 }
                                 _ => break,
                             }
+                        } else {
+                            break;
                         }
                     }
                 }
