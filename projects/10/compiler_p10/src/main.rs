@@ -1,10 +1,12 @@
-#![allow(unused, dead_code, non_camel_case_types)]
 use regex::Regex;
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Write};
+
 use std::path::PathBuf;
-use std::thread::ThreadId;
+use std::thread;
+use std::time::Duration;
+
 use std::{env, io};
 
 fn main() -> io::Result<()> {
@@ -17,31 +19,27 @@ fn main() -> io::Result<()> {
     let buffer = fs::read_to_string(input_name)?;
     if input_path.is_file() {
         let mut jack_t = jack_tokenizer::new(&buffer);
+
         while jack_t.has_more_tokens() {
             jack_t.advance();
             jack_t.write_token_file();
         }
+
+        // for token in jack_t.tokens.clone() {
+        //     println!(
+        //         "token value is {:?}, token kind is: {}",
+        //         token.value,
+        //         token.kind.as_str()
+        //     );
+        // }
         // move stuff around later
-        let c_engine = compilation_engine::new(jack_t.tokens);
+        let mut c_engine = compilation_engine::new(jack_t.tokens).unwrap();
+
+        let class_token = c_engine.tokens.first().unwrap();
+        c_engine.compile_class();
     }
 
     Ok(())
-    /*
-    jack_analyzer
-    jack_tokenizer
-    compilation_engine
-
-
-
-
-
-    The analyzer will:
-    for each source file:
-    create a jack_tokenizer from the Xxx.jack input file;
-    create an output file called Xxx.xml and prepare it for writing
-    Use the compilation_engine to compiler the input jack_tokenizer into the output file
-
-     */
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -51,21 +49,7 @@ enum TOKEN_TYPE {
     IDENTIFIER,
     INT_CONST,
     STRING_CONST,
-    NONE, // REMOVE NONE LATER !!!
 }
-
-// unnecessary right now
-
-// enum TERM_TYPES {
-//     INTEGER_CONST,
-//     STRING_CONST,
-//     KEYWORD_CONST,
-//     VAR_NAME,
-//     VAR_NAME_EXPRESSION,
-//     SUBROUTINE_CALL,
-//     EXPRESSION,
-//     UNARY_OP,
-// }
 
 impl TOKEN_TYPE {
     fn as_str(&self) -> &str {
@@ -75,7 +59,6 @@ impl TOKEN_TYPE {
             TOKEN_TYPE::IDENTIFIER => "identifier",
             TOKEN_TYPE::INT_CONST => "integerConstant",
             TOKEN_TYPE::STRING_CONST => "stringConstant",
-            _ => "",
         }
     }
 }
@@ -98,9 +81,9 @@ impl jack_tokenizer {
     fn new(file: &str) -> Self {
         // sanitize lines
 
-        let mut tokens: Vec<Token> = Vec::new();
+        let tokens: Vec<Token> = Vec::new();
 
-        let mut file_tokens = OpenOptions::new()
+        let file_tokens = OpenOptions::new()
             .truncate(true)
             .write(true)
             .create(true)
@@ -118,12 +101,11 @@ impl jack_tokenizer {
         for line in file.lines() {
             let sanitized_line = line.split("//").next().unwrap_or("").trim();
 
-            println!("line is {}", sanitized_line);
             if !sanitized_line.is_empty() {
                 re.find_iter(sanitized_line).for_each(|x| {
-                    let mut token = x.as_str().to_string();
-                    let mut token_kind = j_tokenizer.token_type();
-
+                    let token = x.as_str().to_string();
+                    j_tokenizer.current_token = Some(token.clone()); // figure out a better solution
+                    let token_kind = j_tokenizer.token_type(); // this wouldve hit the None branch if not for the clone above
                     j_tokenizer.tokens.push(Token {
                         value: token,
                         kind: token_kind,
@@ -141,13 +123,12 @@ impl jack_tokenizer {
         }
 
         let token_type = self.token_type_as_str();
-        println!("token type is: {}", token_type);
 
         let token = self.current_token.as_ref().unwrap();
-        println!("token is {}", token);
 
         let write_token = format!("<{token_type}> {token} </{token_type}>\n");
-        self.tokens_file
+        let _ = self
+            .tokens_file
             .as_mut()
             .unwrap()
             .write_all(write_token.as_bytes());
@@ -218,7 +199,7 @@ impl jack_tokenizer {
                 TOKEN_TYPE::IDENTIFIER
             }
 
-            _ => TOKEN_TYPE::NONE,
+            _ => TOKEN_TYPE::IDENTIFIER, // causing bug // why is it reaching here??
         }
     }
 
@@ -229,7 +210,6 @@ impl jack_tokenizer {
             TOKEN_TYPE::STRING_CONST => "stringConstant",
             TOKEN_TYPE::INT_CONST => "integerConstant",
             TOKEN_TYPE::SYMBOL => "symbol",
-            TOKEN_TYPE::NONE => "",
         }
     }
 
@@ -242,15 +222,15 @@ impl jack_tokenizer {
 
     fn symbol(&mut self) -> Option<String> {
         /*
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        four of the symbols used in the Jack language (<, >, ", «) are also used for XML markup,
 and thus they cannot appear as data in XML files. 
 To solve the problem, we require the tokenizer to output these tokens as &1t;, sgt;, squot;, and samp;, respectively. */
         if let TOKEN_TYPE::SYMBOL = self.token_type() {
             let new_val = match self.current_token.as_ref().unwrap().as_ref() {
                 "<" => Some("&lt;".to_string()),
-                ">" => Some("sgt;".to_string()),
-                "\"" => Some("squot;".to_string()),
-                "&" => Some("samp;".to_string()),
+                ">" => Some("&gt;".to_string()),
+                "\"" => Some("&quot;".to_string()),
+                "&" => Some("&amp;".to_string()),
                 _ => self.current_token.clone(),
             };
             self.current_token = new_val.clone();
@@ -311,7 +291,7 @@ impl compilation_engine {
             .truncate(true)
             .write(true)
             .create(true)
-            .open("output.txt")
+            .open("output.xml")
             .unwrap();
 
         let mut writer = Self {
@@ -320,10 +300,6 @@ impl compilation_engine {
             pos: 0,
         };
         Ok(writer)
-    }
-
-    fn has_more_tokens(&self) -> bool {
-        self.pos < self.tokens.len()
     }
 
     fn advance(&mut self) -> Option<Token> {
@@ -373,26 +349,6 @@ impl compilation_engine {
         }
     }
 
-    fn expect_any_advance(&mut self, expected: &[&str]) -> io::Result<Token> {
-        let tok = self.advance().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                format!("expected one of {:?}", expected),
-            )
-        })?;
-        if expected.contains(&&tok.value.as_str()) {
-            Ok(tok)
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!(
-                    "expected one of {:?}, found '{}' instead",
-                    expected, tok.value
-                ),
-            ))
-        }
-    }
-
     fn is_operator(&mut self) -> bool {
         let operators: [&str; 9] = ["+", "-", "*", "/", "&", "|", "<", ">", "="];
         self.peek_ahead()
@@ -406,46 +362,61 @@ impl compilation_engine {
     }
 
     fn write_open_tag(&mut self, s: &str) -> io::Result<()> {
-        let s = format!("<{s}>");
+        let s = format!("<{s}>\n");
         if let Some(f) = self.file.as_mut() {
             f.write_all(s.as_bytes())?;
+            f.flush()?;
         }
         Ok(())
     }
     fn write_close_tag(&mut self, s: &str) -> io::Result<()> {
-        let s = format!("</{s}>");
+        let s = format!("</{s}>\n");
         if let Some(f) = self.file.as_mut() {
             f.write_all(s.as_bytes())?;
+            f.flush()?;
         };
 
         Ok(())
     }
     fn write_token(&mut self, token: &str, tag: &str) -> io::Result<()> {
-        let s = format!("<{tag}> {token} </{tag}>");
+        let s = format!("<{tag}> {token} </{tag}>\n");
         if let Some(f) = self.file.as_mut() {
             f.write_all(s.as_bytes())?;
+            f.flush()?;
         }
         Ok(())
     }
 
+    fn trace_helper(&mut self, method: &str) {
+        if let Some(t) = self.peek() {
+            println!(
+                "from method: {}, the value is: {}, the kind is: {}",
+                method,
+                t.value,
+                t.kind.as_str()
+            );
+        }
+    }
     fn compile_class(&mut self) -> io::Result<()> {
-        //class:          class'className '{'classVarDec* subroutineDec* '}'
-        //classVarDec:    (‘static'|'field') type varName (',' varName)* ';'
-        // only call compile_class if curr_token is class
-
+        //'class'className '{'classVarDec* subroutineDec* '}'
         self.write_open_tag("class");
-        let class_tok = self.advance().expect("expected 'class' token");
+        let class_tok = self.expect_value("class")?;
 
         self.write_token(&class_tok.value, class_tok.kind.as_str());
-        let class_identifier = self.advance().expect("expected 'class' name "); // word after class, then moves pos
+        let class_identifier = self.expect_kind("identifier")?;
         self.write_token(&class_identifier.value, class_identifier.kind.as_str());
-        let open_bracket = self.advance().expect("expected '{' bracket ");
+        let open_bracket = self.expect_value("{")?;
         self.write_token(&open_bracket.value, open_bracket.kind.as_str());
 
         // peek might panic, will fix later
-        while let Some(tok) = self.advance() {
+        while let Some(tok) = self.peek() {
+            self.trace_helper("compile_class");
+            thread::sleep(Duration::from_millis(1)); // remove later !
+
             if tok.value == "static" || tok.value == "field" {
                 self.write_open_tag("classVarDec")?;
+                let t = self.advance().unwrap();
+                self.write_token(&t.value, t.kind.as_str())?;
                 loop {
                     match self.advance() {
                         Some(t) => {
@@ -465,7 +436,10 @@ impl compilation_engine {
                 self.write_close_tag("classVarDec")?;
             } else if tok.value == "constructor" || tok.value == "function" || tok.value == "method"
             {
-                self.compile_subroutine();
+                // since we advanced above, we consumed the tokenw
+                // here "constructor" keyword is gone and we are not writing it
+
+                self.compile_subroutine()?;
             }
         }
 
@@ -478,30 +452,16 @@ impl compilation_engine {
         unimplemented!()
     }
     fn compile_subroutine(&mut self) -> io::Result<()> {
-        /*
-        subroutine example:
-            function void main(  parameterList missing here) {  <------------ all start like this
-
-          var SquareGame game;  <------------ varDecs
-          let game = SquareGame.new(); <------------ varDec
-          do game.run();    <------------ do statement
-          do game.dispose(); <------------ do statement
-          return;             <------------ return statement
-        } */
+        self.trace_helper("compile_subroutine");
         self.write_open_tag("subroutineDec")?;
-        let kw_1 = self
-            .advance()
-            .expect("expected kw_1, -> from subroutine method");
+        let kw_1 = self.expect_kind("keyword")?;
         self.write_token(&kw_1.value, kw_1.kind.as_str())?;
 
-        let kw_2 = self
-            .advance()
-            .expect("expected kw_2, -> from subroutine method");
+        let kw_2 = self.advance().expect("expected return type or 'void'");
         self.write_token(&kw_2.value, kw_2.kind.as_str())?;
 
-        let identifier = self
-            .advance()
-            .expect("expected method identifier, -> from subroutine method");
+        let identifier = self.expect_kind("identifier")?;
+
         self.write_token(&identifier.value, identifier.kind.as_str())?;
 
         let opening_parenthesis = self
@@ -546,6 +506,7 @@ impl compilation_engine {
         self.write_open_tag("parameterList")?;
 
         while let Some(t) = self.peek() {
+            self.trace_helper("compile_parameter_list");
             if t.value == ")" {
                 break;
             }
@@ -560,10 +521,8 @@ impl compilation_engine {
         Ok(())
     }
     fn compile_var_dec(&mut self) -> io::Result<()> {
-        // varDec: 'var' type varName (',' varName)* ';'
-
-        // add token validation later
         while let Some(tok) = self.peek() {
+            self.trace_helper("compile_var_dec");
             if tok.value == "var" {
                 self.write_open_tag("varDec")?;
                 loop {
@@ -593,6 +552,7 @@ impl compilation_engine {
     fn compile_statements(&mut self) -> io::Result<()> {
         self.write_open_tag("statements")?;
         while let Some(tok) = self.peek() {
+            self.trace_helper("compile_statements");
             if ["let", "if", "do", "while", "return"].contains(&tok.value.as_str()) {
                 // statement belw
                 match tok.value.as_str() {
@@ -632,52 +592,51 @@ impl compilation_engine {
         // ex:     let game = SquareGame.new();
         //ex:      let arr[i+1] = x;
         self.write_open_tag("letStatement")?;
+        self.trace_helper("compile_let");
 
-        let let_tok = self.advance().unwrap();
+        let let_tok = self.expect_value("let")?;
         self.write_token(&let_tok.value, let_tok.kind.as_str())?;
 
-        let varname_tok = self.advance().unwrap();
+        let varname_tok = self.expect_kind("identifier")?;
         self.write_token(&varname_tok.value, varname_tok.kind.as_str())?;
 
         if let Some(t) = self.peek() {
             if t.value == "[" {
-                let open_bracket = self.advance().unwrap();
+                let open_bracket = self.expect_value("[")?;
                 self.write_token(&open_bracket.value, open_bracket.kind.as_str())?;
                 self.compile_expression()?;
-                let close_bracket = self.advance().unwrap();
+                let close_bracket = self.expect_value("]")?;
                 self.write_token(&close_bracket.value, close_bracket.kind.as_str())?;
             }
         }
 
-        let eq_token = self.advance().unwrap();
+        let eq_token = self.expect_value("=")?;
         self.write_token(&eq_token.value, eq_token.kind.as_str())?;
         self.compile_expression()?;
-        let semic_token = self.advance().unwrap();
+        let semic_token = self.expect_value(";")?;
         self.write_token(&semic_token.value, semic_token.kind.as_str())?;
 
         self.write_close_tag("letStatement")?;
         Ok(())
     }
     fn compile_if(&mut self) -> io::Result<()> {
-        // 'if''(' expression ')''{' statements '}' ('else''{' statements '}' )?
-        // ex:  if (key = 81)  { let exit = true; }     // q key
         self.write_open_tag("ifStatement")?;
-
-        let if_tok = self.advance().unwrap();
+        self.trace_helper("compile_if");
+        let if_tok = self.expect_value("if")?;
         self.write_token(&if_tok.value, if_tok.kind.as_str())?;
-        let open_paren_token = self.advance().unwrap();
+        let open_paren_token = self.expect_value("(")?;
         self.write_token(&open_paren_token.value, open_paren_token.kind.as_str())?;
 
         self.compile_expression()?;
-        let close_paren_token = self.advance().unwrap();
+        let close_paren_token = self.expect_value(")")?;
         self.write_token(&close_paren_token.value, close_paren_token.kind.as_str())?;
 
-        let open_bracket_token = self.advance().unwrap();
+        let open_bracket_token = self.expect_value("{")?;
         self.write_token(&open_bracket_token.value, open_bracket_token.kind.as_str())?;
 
         self.compile_statements()?; // statements //
 
-        let close_bracket_token = self.advance().unwrap();
+        let close_bracket_token = self.expect_value("}")?;
         self.write_token(
             &close_bracket_token.value,
             close_bracket_token.kind.as_str(),
@@ -685,13 +644,13 @@ impl compilation_engine {
 
         if let Some(t) = self.peek() {
             if t.value == "else" {
-                let else_tok = self.advance().unwrap();
+                let else_tok = self.expect_value("else")?;
                 self.write_token(&else_tok.value, else_tok.kind.as_str())?;
 
-                let open_bracket_token = self.advance().unwrap();
+                let open_bracket_token = self.expect_value("{")?;
                 self.write_token(&open_bracket_token.value, open_bracket_token.kind.as_str())?;
                 self.compile_statements()?;
-                let close_bracket_token = self.advance().unwrap();
+                let close_bracket_token = self.expect_value("}")?;
 
                 self.write_token(
                     &close_bracket_token.value,
@@ -706,26 +665,26 @@ impl compilation_engine {
     fn compile_while(&mut self) -> io::Result<()> {
         // 'while''(' expression ')''{' statements '}'
         self.write_open_tag("whileStatement")?;
+        self.trace_helper("compile_while");
 
         let while_tok = self.expect_value("while")?;
         self.write_token(&while_tok.value, while_tok.kind.as_str())?;
 
-        let open_paren_token = self.advance().unwrap();
-
+        let open_paren_token = self.expect_value("(")?;
         self.write_token(&open_paren_token.value, open_paren_token.kind.as_str())?;
 
         self.compile_expression()?;
 
-        let close_paren_token = self.advance().unwrap();
+        let close_paren_token = self.expect_value(")")?;
 
         self.write_token(&close_paren_token.value, close_paren_token.kind.as_str())?;
 
-        let open_bracket_token = self.advance().unwrap();
+        let open_bracket_token = self.expect_value("{")?;
         self.write_token(&open_bracket_token.value, open_bracket_token.kind.as_str())?;
 
         self.compile_statements()?;
 
-        let close_bracket_token = self.advance().unwrap();
+        let close_bracket_token = self.expect_value("}")?;
         self.write_token(
             &close_bracket_token.value,
             close_bracket_token.kind.as_str(),
@@ -738,6 +697,7 @@ impl compilation_engine {
     fn compile_return(&mut self) -> io::Result<()> {
         //‘return’ expression? ';'
         self.write_open_tag("returnStatement")?;
+        self.trace_helper("compile_return");
 
         let return_tok = self.expect_value("return")?;
         self.write_token(&return_tok.value, return_tok.kind.as_str())?;
@@ -754,13 +714,41 @@ impl compilation_engine {
     }
 
     fn compile_do(&mut self) -> io::Result<()> {
+        self.trace_helper("compile_do");
         //doStatement: ‘do' subroutineCall ';'
         self.write_open_tag("doStatement")?;
 
         let do_tok = self.expect_value("do")?;
         self.write_token(&do_tok.value, do_tok.kind.as_str())?;
 
-        self.compile_subroutine();
+        /* subroutineName ' (' expressionList ')' | (className | varName) '.' subroutineName "(' expressionList ')' */
+        let name_identifier = self.expect_kind("identifier")?;
+        self.write_token(&name_identifier.value, name_identifier.kind.as_str())?;
+
+        if let Some(t) = self.peek() {
+            match t.value.as_str() {
+                "(" => {
+                    let open_paren = self.expect_value("(")?;
+                    self.write_token(&open_paren.value, open_paren.kind.as_str())?;
+                    self.compile_expression_list()?;
+                    let close_paren = self.expect_value(")")?;
+                    self.write_token(&close_paren.value, close_paren.kind.as_str())?;
+                }
+                "." => {
+                    let dot_tok = self.expect_value(".")?;
+                    self.write_token(&dot_tok.value, dot_tok.kind.as_str())?;
+                    let subroutine_name = self.expect_kind("identifier")?;
+                    self.write_token(&subroutine_name.value, subroutine_name.kind.as_str())?;
+                    let open_paren = self.expect_value("(")?;
+                    self.write_token(&open_paren.value, open_paren.kind.as_str())?;
+                    self.compile_expression_list()?;
+                    let close_paren = self.expect_value(")")?;
+                    self.write_token(&close_paren.value, close_paren.kind.as_str())?;
+                }
+                _ => {}
+            }
+        }
+        // self.compile_subroutine(); // <- the fuck is this lol
 
         let semic_token = self.expect_value(";")?;
         self.write_token(&semic_token.value, semic_token.kind.as_str())?;
@@ -771,13 +759,9 @@ impl compilation_engine {
     }
 
     fn compile_expression(&mut self) -> io::Result<()> {
-        /*
-             term: integerConstant | stringConstant | keywordConstant | varName
-             | varName '[' expression ']' | subroutineCall |'(' expression ')'| unaryOp term
-        */
         self.write_open_tag("expression")?;
+        self.trace_helper("compile_expression");
         self.compile_term()?;
-        // maybe use while loop in case of multiple (op term)*
 
         while self.is_operator() {
             let operator_tok = self.advance().unwrap(); // ok because we looked ahead
@@ -793,10 +777,11 @@ impl compilation_engine {
         self.write_open_tag("term")?;
 
         if let Some(first_tok) = self.advance() {
+            self.trace_helper("compile_term");
             match first_tok.kind.as_str() {
                 "identifier" => {
                     self.write_token(&first_tok.value, first_tok.kind.as_str())?;
-                    if let Some(symbol_ahead) = self.peek() {
+                    if let Some(symbol_ahead) = self.peek_ahead() {
                         match symbol_ahead.value.as_str() {
                             "[" => {
                                 let open_bracket = self.expect_value("[")?;
@@ -871,6 +856,7 @@ impl compilation_engine {
         // recursively check here
         // how to decide whether to call comp_exp?
         if let Some(tok) = self.peek_ahead() {
+            self.trace_helper("compile_expression_list");
             match tok.value.as_str() {
                 ")" => {} // empty expressions, do nothing
                 _ => {
