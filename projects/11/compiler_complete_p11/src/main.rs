@@ -111,31 +111,87 @@ impl VM_Writer {
         })
     }
     fn write_push(&mut self, segment: &str, index: usize) -> io::Result<()> {
-        unimplemented!()
+        let vm_to_write = format!(r#"push {} {}"#, segment, index);
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(vm_to_write.as_bytes())?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
+        }
+
+        Ok(())
     }
     fn write_pop(&mut self, segment: &str, index: usize) -> io::Result<()> {
-        unimplemented!()
+        let vm_to_write = format!(r#"pop {} {}\n"#, segment, index);
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(vm_to_write.as_bytes())?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
+        }
+
+        Ok(())
     }
     fn write_arithmetic(&mut self, command: &str) -> io::Result<()> {
-        unimplemented!()
+        let vm_to_write = format!(r#"{}\n"#, command);
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(vm_to_write.as_bytes())?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
+        }
+        Ok(())
     }
     fn write_label(&mut self, label: &str) -> io::Result<()> {
-        unimplemented!()
+        let vm_to_write = format!(r#"label {}\n"#, label);
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(vm_to_write.as_bytes())?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
+        }
+        Ok(())
     }
     fn write_goto(&mut self, label: &str) -> io::Result<()> {
-        unimplemented!()
+        let vm_to_write = format!(r#"goto {}\n"#, label);
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(vm_to_write.as_bytes())?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
+        }
+        Ok(())
     }
     fn write_if(&mut self, label: &str) -> io::Result<()> {
-        unimplemented!()
+        let vm_to_write = format!(r#"if-goto {}\n"#, label);
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(vm_to_write.as_bytes())?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
+        }
+        Ok(())
     }
     fn write_call(&mut self, name: &str, n_args: usize) -> io::Result<()> {
-        unimplemented!()
+        let vm_to_write = format!(r#"call {} {} \n"#, name, n_args);
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(vm_to_write.as_bytes())?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
+        }
+        Ok(())
     }
     fn write_function(&mut self, name: &str, n_locals: usize) -> io::Result<()> {
-        unimplemented!()
+        let vm_to_write = format!(r#" function {} {} \n"#, name, n_locals);
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(vm_to_write.as_bytes())?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
+        }
+        Ok(())
     }
     fn write_return(&mut self) -> io::Result<()> {
-        unimplemented!()
+        let vm_to_write = format!(r#"return\n"#);
+        if let Some(f) = self.file.as_mut() {
+            f.write_all(vm_to_write.as_bytes())?;
+        } else {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
+        }
+        Ok(())
     }
     fn close(&mut self) -> io::Result<()> {
         if let Some(f) = self.file.as_mut() {
