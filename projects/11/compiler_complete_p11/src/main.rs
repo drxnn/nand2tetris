@@ -111,83 +111,56 @@ impl VM_Writer {
         })
     }
     fn write_push(&mut self, segment: &str, index: usize) -> io::Result<()> {
-        let vm_to_write = format!(r#"push {} {}"#, segment, index);
-        if let Some(f) = self.file.as_mut() {
-            f.write_all(vm_to_write.as_bytes())?;
-        } else {
-            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
-        }
+        let vm_to_write = format!(r#"push {} {}\n"#, segment, index);
+        self.write_to_file(vm_to_write)?;
 
         Ok(())
     }
     fn write_pop(&mut self, segment: &str, index: usize) -> io::Result<()> {
         let vm_to_write = format!(r#"pop {} {}\n"#, segment, index);
-        if let Some(f) = self.file.as_mut() {
-            f.write_all(vm_to_write.as_bytes())?;
-        } else {
-            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
-        }
+        self.write_to_file(vm_to_write)?;
 
         Ok(())
     }
     fn write_arithmetic(&mut self, command: &str) -> io::Result<()> {
         let vm_to_write = format!(r#"{}\n"#, command);
-        if let Some(f) = self.file.as_mut() {
-            f.write_all(vm_to_write.as_bytes())?;
-        } else {
-            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
-        }
+        self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_label(&mut self, label: &str) -> io::Result<()> {
         let vm_to_write = format!(r#"label {}\n"#, label);
-        if let Some(f) = self.file.as_mut() {
-            f.write_all(vm_to_write.as_bytes())?;
-        } else {
-            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
-        }
+        self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_goto(&mut self, label: &str) -> io::Result<()> {
         let vm_to_write = format!(r#"goto {}\n"#, label);
-        if let Some(f) = self.file.as_mut() {
-            f.write_all(vm_to_write.as_bytes())?;
-        } else {
-            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
-        }
+        self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_if(&mut self, label: &str) -> io::Result<()> {
         let vm_to_write = format!(r#"if-goto {}\n"#, label);
-        if let Some(f) = self.file.as_mut() {
-            f.write_all(vm_to_write.as_bytes())?;
-        } else {
-            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
-        }
+        self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_call(&mut self, name: &str, n_args: usize) -> io::Result<()> {
-        let vm_to_write = format!(r#"call {} {} \n"#, name, n_args);
-        if let Some(f) = self.file.as_mut() {
-            f.write_all(vm_to_write.as_bytes())?;
-        } else {
-            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
-        }
+        let vm_to_write = format!(r#"call {} {}\n"#, name, n_args);
+        self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_function(&mut self, name: &str, n_locals: usize) -> io::Result<()> {
-        let vm_to_write = format!(r#" function {} {} \n"#, name, n_locals);
-        if let Some(f) = self.file.as_mut() {
-            f.write_all(vm_to_write.as_bytes())?;
-        } else {
-            return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
-        }
+        let vm_to_write = format!(r#"function {} {}\n"#, name, n_locals);
+        self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_return(&mut self) -> io::Result<()> {
         let vm_to_write = format!(r#"return\n"#);
+        self.write_to_file(vm_to_write)?;
+        Ok(())
+    }
+    fn write_to_file(&mut self, str_to_write: String) -> io::Result<()> {
         if let Some(f) = self.file.as_mut() {
-            f.write_all(vm_to_write.as_bytes())?;
+            // repetetive maybe refactor into a function
+            f.write_all(str_to_write.as_bytes())?;
         } else {
             return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
         }
@@ -463,6 +436,7 @@ struct compilation_engine {
     pos: usize,
     indentation: usize,
     symbol_table: symbol_table,
+    vm_writer: VM_Writer,
 }
 
 impl compilation_engine {
