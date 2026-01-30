@@ -1,5 +1,4 @@
-#[allow(dead_code)]
-#[allow(non_snake_case)]
+#![allow(dead_code, non_snake_case)]
 use regex::Regex;
 
 use std::fs::{self, File, OpenOptions};
@@ -69,14 +68,6 @@ struct IdentifierEntry {
     kind: Identifier_Kind,
     index: usize,
 }
-struct symbol_table {
-    class_scope: Vec<IdentifierEntry>, // name, type, kind/segment, index
-    subroutine_scope: Vec<IdentifierEntry>,
-    static_index: usize,
-    field_index: usize,
-    arg_index: usize,
-    var_index: usize,
-}
 enum Identifier_Kind {
     STATIC, // scope class
     FIELD,  // scope class
@@ -93,6 +84,14 @@ impl Identifier_Kind {
             Identifier_Kind::VAR => "local",
         }
     }
+}
+struct symbol_table {
+    class_scope: Vec<IdentifierEntry>, // name, type, kind/segment, index
+    subroutine_scope: Vec<IdentifierEntry>,
+    static_index: usize,
+    field_index: usize,
+    arg_index: usize,
+    var_index: usize,
 }
 
 struct VM_Writer {
@@ -196,16 +195,23 @@ impl symbol_table {
         self.arg_index = 0;
         self.var_index = 0;
     }
-    fn define(&mut self, name: &str, ty: &str, kind: Identifier_Kind) {
+    fn define(&mut self, name: &str, ty: &str, kind: &str) {
         // Defines a new identifier of a given name, type and kind and assigns it a running index. STATIC and FIELD identifiers
         // have a class scope, while ARG and VAR identifiers have a subroutine scope.
         let index = self.var_count(&kind);
-        match kind {
+        let identifier_kind = match kind {
+            "static" => Identifier_Kind::STATIC,
+            "field" => Identifier_Kind::FIELD,
+            "var" => Identifier_Kind::VAR,
+            "argument" => Identifier_Kind::ARG,
+            _ => panic!("Invalid identifier kind: {}", kind),
+        };
+        match identifier_kind {
             Identifier_Kind::ARG => {
                 self.subroutine_scope.push(IdentifierEntry {
                     name: name.to_string(),
                     type_name: ty.to_string(),
-                    kind,
+                    kind: identifier_kind,
                     index,
                 });
                 self.arg_index += 1;
@@ -214,7 +220,7 @@ impl symbol_table {
                 self.subroutine_scope.push(IdentifierEntry {
                     name: name.to_string(),
                     type_name: ty.to_string(),
-                    kind,
+                    kind: identifier_kind,
                     index,
                 });
                 self.var_index += 1
@@ -223,7 +229,7 @@ impl symbol_table {
                 self.class_scope.push(IdentifierEntry {
                     name: name.to_string(),
                     type_name: ty.to_string(),
-                    kind,
+                    kind: identifier_kind,
                     index,
                 });
                 self.static_index += 1
@@ -232,7 +238,7 @@ impl symbol_table {
                 self.class_scope.push(IdentifierEntry {
                     name: name.to_string(),
                     type_name: ty.to_string(),
-                    kind,
+                    kind: identifier_kind,
                     index,
                 });
                 self.field_index += 1
@@ -240,9 +246,16 @@ impl symbol_table {
         }
     }
 
-    fn var_count(&self, kind: &Identifier_Kind) -> usize {
+    fn var_count(&self, kind: &str) -> usize {
         // Returns the number of variables of the given kind already defined in the current scope.
-        match kind {
+        let identifier_kind = match kind {
+            "static" => Identifier_Kind::STATIC,
+            "field" => Identifier_Kind::FIELD,
+            "var" => Identifier_Kind::VAR,
+            "argument" => Identifier_Kind::ARG,
+            _ => panic!("Invalid identifier kind: {}", kind),
+        };
+        match identifier_kind {
             Identifier_Kind::ARG => self.arg_index,
             Identifier_Kind::VAR => self.var_index,
             Identifier_Kind::FIELD => self.field_index,
@@ -449,12 +462,14 @@ impl compilation_engine {
             .unwrap();
 
         let symbol_table = symbol_table::new();
+        let vm_writer = VM_Writer::new("output.vm")?; // will fix later 
         let writer = Self {
             symbol_table,
             file: Some(BufWriter::new(file)),
             tokens: tokens,
             pos: 0,
             indentation: 0,
+            vm_writer,
         };
         Ok(writer)
     }
@@ -589,15 +604,30 @@ impl compilation_engine {
     fn compile_class_var_dec(&mut self) -> io::Result<()> {
         self.write_open_tag("classVarDec")?;
         self.indentation += 2;
+
         let t = self.advance().unwrap();
+        let kind = t.value.clone();
         self.write_token(&t.value, t.kind.as_str())?;
+
+        // Second token is the type
+        let t = self.advance().unwrap();
+        let var_type = t.value.clone();
+        self.write_token(&t.value, t.kind.as_str())?;
+
         loop {
             match self.advance() {
                 Some(t) => {
-                    self.write_token(&t.value, t.kind.as_str())?;
+                    // here we are looping over tokens, looks like this for example: int x, y, z;
+                    // is it possible to get name(x then y then z) and type without refactoring the loop?
+
                     if t.value == ";" {
+                        self.write_token(&t.value, t.kind.as_str())?;
                         break;
+                    } else if t.value != "," {
+                        // token is name
+                        self.symbol_table.define(&t.value, &var_type, &kind);
                     }
+                    self.write_token(&t.value, t.kind.as_str())?;
                 }
                 None => {
                     return Err(std::io::Error::new(
@@ -918,7 +948,13 @@ impl compilation_engine {
     fn compile_expression(&mut self) -> io::Result<()> {
         self.write_open_tag("expression")?;
         self.indentation += 2;
-
+        //         if exp is "term1 op1 term2 op2 term3 op3 ... termn ":
+        // compileTerm(term1)
+        // compileTerm(term2)
+        // output "op1"
+        // so need to output two terms then operator, if exp is just term by itself such as term, then just compile term
+        // look ahead and see if the next token is a operator, if no, just compile term.
+        // if nextToken == operator then output: push curr, push curr+1, push operator
         self.compile_term()?;
 
         while self.is_operator() {
@@ -936,6 +972,7 @@ impl compilation_engine {
     fn compile_term(&mut self) -> io::Result<()> {
         self.write_open_tag("term")?;
         self.indentation += 2;
+
         if let Some(first_tok) = self.advance() {
             match first_tok.kind.as_str() {
                 "identifier" => {
