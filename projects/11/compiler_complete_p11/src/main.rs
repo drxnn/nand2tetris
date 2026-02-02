@@ -1,6 +1,7 @@
 #![allow(dead_code, non_snake_case)]
 use regex::Regex;
 
+use std::any::Any;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Write};
 
@@ -520,6 +521,29 @@ impl compilation_engine {
             ))
         }
     }
+    fn expect_type(&mut self) -> io::Result<Token> {
+        let tok = self.advance().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::UnexpectedEof, format!("token missing, eof"))
+        })?;
+
+        match tok.kind {
+            TOKEN_TYPE::KEYWORD => {
+                if tok.value == "int" || tok.value == "char" || tok.value == "boolean" {
+                    Ok(tok)
+                } else {
+                    Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("unexpected keyword {}; expected type", tok.value),
+                    ))
+                }
+            }
+            TOKEN_TYPE::IDENTIFIER => Ok(tok),
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("unexpected keyword {}; expected type", tok.value),
+            )),
+        }
+    }
 
     fn is_operator(&mut self) -> bool {
         let operators: [&str; 9] = ["+", "-", "*", "/", "&", "|", "<", ">", "="];
@@ -713,22 +737,35 @@ impl compilation_engine {
         Ok(())
     }
     fn compile_var_dec(&mut self) -> io::Result<()> {
+        let mut t_type = String::new();
+
         while let Some(tok) = self.peek() {
             if tok.value == "var" {
                 self.write_open_tag("varDec")?;
                 self.indentation += 2;
+
+                let var_token = self.expect_value("var")?;
+                self.write_token(&var_token.value, var_token.kind.as_str())?;
+                let type_token = self.expect_type()?;
+                t_type = type_token.value.clone();
+                self.write_token(&type_token.value, type_token.kind.as_str())?;
+
                 loop {
+                    // here its: varName , otherVarName , varName2 , lastVarName ;
                     match self.advance() {
                         Some(t) => {
-                            self.write_token(&t.value, t.kind.as_str())?;
-                            if t.value == ";" {
+                            if t.kind == TOKEN_TYPE::IDENTIFIER {
+                                self.symbol_table.define(&t.value, t_type.as_str(), "local");
+                            } else if t.value == ";" {
+                                self.write_token(&t.value, t.kind.as_str())?;
                                 break;
                             }
+                            self.write_token(&t.value, t.kind.as_str())?;
                         }
                         None => {
                             return Err(std::io::Error::new(
                                 std::io::ErrorKind::UnexpectedEof,
-                                "unexpected eof error while parsing classVarDec",
+                                "unexpected eof error while parsing VarDec",
                             ));
                         }
                     }
