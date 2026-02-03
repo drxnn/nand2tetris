@@ -1,13 +1,14 @@
 #![allow(dead_code, non_snake_case)]
 use regex::Regex;
 
+use core::fmt;
 use std::any::Any;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Write};
 
 use std::path::PathBuf;
 
-use std::{env, io};
+use std::{env, io, usize};
 
 fn main() -> io::Result<()> {
     let mut args = env::args();
@@ -69,6 +70,7 @@ struct IdentifierEntry {
     kind: Identifier_Kind,
     index: usize,
 }
+
 enum Identifier_Kind {
     STATIC, // scope class
     FIELD,  // scope class
@@ -827,15 +829,58 @@ impl compilation_engine {
         Ok(())
     }
 
+    fn get_variable_from_scope(
+        &self,
+        var_to_look_for: &str,
+    ) -> Result<&IdentifierEntry, std::io::Error> {
+        // look for variable in subroutine scope, if found return
+        // else look in class cope if found return
+        // else compilation error
+        let variable = self
+            .symbol_table
+            .subroutine_scope
+            .iter()
+            .find(|entry| entry.name == var_to_look_for)
+            .or_else(|| {
+                self.symbol_table
+                    .class_scope
+                    .iter()
+                    .find(|entry| entry.name == var_to_look_for)
+            });
+
+        return variable.ok_or(std::io::Error::new(
+            io::ErrorKind::NotFound,
+            "Something went wrong. Variable no found in either method or class scopes.",
+        ));
+    }
     fn compile_let(&mut self) -> io::Result<()> {
         self.write_open_tag("letStatement")?;
         self.indentation += 2;
+        //         Compiling statements
+        // For each variable found in a statement:
+        // The compiler looks up the variable in the method-level symbol table;
+        // If found, the variable is replaced with its segment i reference;
+        // Else, the compiler looks up the variable in the class-level symbol table;
+        // If found, the variable is replaced with its segment i reference;
+        // Else, the compiler throws a compilation error.
+        // For example, x + dx is compiled into push this 0, push local 0, add.
+
+        // let statement: 'let' varName ('[' expression ']')? '=' expression ';'
 
         let let_tok = self.expect_value("let")?;
         self.write_token(&let_tok.value, let_tok.kind.as_str())?;
 
         let varname_tok = self.expect_kind("identifier")?;
+        // look it up on the table, put in a helper function later
         self.write_token(&varname_tok.value, varname_tok.kind.as_str())?;
+
+        // we pop this at the end vm_writer.pop
+        let variable_to_assign_to = self.get_variable_from_scope(&varname_tok.value)?;
+        // //
+
+        //
+        //
+        //// ///
 
         if let Some(t) = self.peek() {
             if t.value == "[" {
@@ -857,6 +902,7 @@ impl compilation_engine {
         self.write_close_tag("letStatement")?;
         Ok(())
     }
+
     fn compile_if(&mut self) -> io::Result<()> {
         self.write_open_tag("ifStatement")?;
         self.indentation += 2;
@@ -1004,12 +1050,15 @@ impl compilation_engine {
         // look ahead and see if the next token is a operator, if no, just compile term.
         // if nextToken == operator then output: push curr, push curr+1, push operator
         self.compile_term()?;
+        // term + term - term + term would be:
+        // push term, push term, add, push term, sub, push term, add
 
         while self.is_operator() {
             self.normalize_symbol();
             let operator_tok = self.expect_kind("symbol")?;
             self.write_token(&operator_tok.value, operator_tok.kind.as_str())?;
             self.compile_term()?;
+            self.vm_writer.write_arithmetic(&operator_tok.value)?; // will come back here later
         }
         self.indentation -= 2;
 
@@ -1021,10 +1070,20 @@ impl compilation_engine {
         self.write_open_tag("term")?;
         self.indentation += 2;
 
+        // if the term is a varname, push it
         if let Some(first_tok) = self.advance() {
             match first_tok.kind.as_str() {
                 "identifier" => {
+                    let var_name: &IdentifierEntry =
+                        self.get_variable_from_scope(&first_tok.value)?;
+
+                    self.vm_writer.write_push(
+                        var_name.kind.kind_to_segment().to_owned().as_str(),
+                        var_name.index,
+                    )?;
+
                     self.write_token(&first_tok.value, first_tok.kind.as_str())?;
+
                     if let Some(symbol_ahead) = self.peek() {
                         match symbol_ahead.value.as_str() {
                             "[" => {
@@ -1064,7 +1123,12 @@ impl compilation_engine {
                         }
                     }
                 }
-                "integerConstant" | "stringConstant" => {
+                "integerConstant" => {
+                    self.write_token(&first_tok.value, first_tok.kind.as_str())?;
+                    let parsedIndex = first_tok.value.parse::<usize>().unwrap(); // will come back here
+                    self.vm_writer.write_push("constant", parsedIndex)?;
+                }
+                "stringConstant" => {
                     self.write_token(&first_tok.value, first_tok.kind.as_str())?;
                 }
                 "symbol" => match first_tok.value.as_str() {
@@ -1077,6 +1141,8 @@ impl compilation_engine {
                     "-" | "~" => {
                         self.write_token(&first_tok.value, first_tok.kind.as_str())?;
                         self.compile_term()?;
+                        let unaryOp = if first_tok.value == "-" { "neg" } else { "not" };
+                        self.vm_writer.write_arithmetic(unaryOp)?;
                     }
                     _ => {}
                 },
