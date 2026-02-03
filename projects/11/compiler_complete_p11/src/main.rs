@@ -687,7 +687,25 @@ impl compilation_engine {
             opening_parenthesis.kind.as_str(),
         )?;
 
-        self.compile_parameter_list()?;
+        self.write_open_tag("parameterList")?;
+        self.indentation += 2;
+        if let Some(t) = self.peek() {
+            if t.value != ")" {
+                self.compile_parameter_list()?;
+                while let Some(t) = self.peek() {
+                    if t.value == "," {
+                        let t = self.expect_value(",")?;
+                        self.write_token(&t.value, t.kind.as_str())?;
+                        self.compile_parameter_list()?;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        self.indentation -= 2;
+        self.write_close_tag("parameterList")?;
 
         let closing_parenthesis = self
             .advance()
@@ -719,20 +737,13 @@ impl compilation_engine {
         Ok(())
     }
     fn compile_parameter_list(&mut self) -> io::Result<()> {
-        self.write_open_tag("parameterList")?;
-        self.indentation += 2;
-        while let Some(t) = self.peek() {
-            if t.value == ")" {
-                break;
-            }
-
-            let tok = self
-                .advance()
-                .expect("from compile_paramlist -> expected token");
-            self.write_token(&tok.value, tok.kind.as_str())?;
-        }
-        self.indentation -= 2;
-        self.write_close_tag("parameterList")?;
+        //
+        let t_token = self.expect_type()?;
+        self.write_token(&t_token.value, t_token.kind.as_str())?;
+        let n_token = self.expect_kind("identifier")?;
+        self.write_token(&n_token.value, n_token.kind.as_str())?;
+        self.symbol_table
+            .define(&n_token.value, &t_token.value, "arg");
 
         Ok(())
     }
