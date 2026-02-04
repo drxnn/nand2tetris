@@ -1,7 +1,7 @@
 #![allow(dead_code, non_snake_case)]
 use regex::Regex;
 
-use core::fmt;
+use core::{fmt, num};
 use std::any::Any;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Write};
@@ -154,14 +154,18 @@ impl VM_Writer {
         self.write_to_file(vm_to_write)?;
         Ok(())
     }
-    fn write_return(&mut self) -> io::Result<()> {
-        let vm_to_write = format!(r#"return\n"#);
+    fn write_return(&mut self, with_expression: bool) -> io::Result<()> {
+        let vm_to_write = if with_expression == true {
+            format!(r#"return\n"#)
+        } else {
+            // push dummy value
+            format!(r#"push constant 0\n return\n"#)
+        };
         self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_to_file(&mut self, str_to_write: String) -> io::Result<()> {
         if let Some(f) = self.file.as_mut() {
-            // repetetive maybe refactor into a function
             f.write_all(str_to_write.as_bytes())?;
         } else {
             return Err(io::Error::new(io::ErrorKind::NotFound, "No Output File"));
@@ -453,6 +457,7 @@ struct compilation_engine {
     indentation: usize,
     symbol_table: symbol_table,
     vm_writer: VM_Writer,
+    label_index: usize,
 }
 
 impl compilation_engine {
@@ -473,6 +478,7 @@ impl compilation_engine {
             pos: 0,
             indentation: 0,
             vm_writer,
+            label_index: 0,
         };
         Ok(writer)
     }
@@ -530,7 +536,11 @@ impl compilation_engine {
 
         match tok.kind {
             TOKEN_TYPE::KEYWORD => {
-                if tok.value == "int" || tok.value == "char" || tok.value == "boolean" {
+                if tok.value == "int"
+                    || tok.value == "char"
+                    || tok.value == "boolean"
+                    || tok.value == "void"
+                {
                     Ok(tok)
                 } else {
                     Err(io::Error::new(
@@ -604,7 +614,7 @@ impl compilation_engine {
         let class_tok = self.expect_value("class")?;
 
         self.write_token(&class_tok.value, class_tok.kind.as_str())?;
-        let class_identifier = self.expect_kind("identifier")?;
+        let class_identifier = self.expect_kind("identifier")?; // className
         self.write_token(&class_identifier.value, class_identifier.kind.as_str())?;
         let open_bracket = self.expect_value("{")?;
         self.write_token(&open_bracket.value, open_bracket.kind.as_str())?;
@@ -614,7 +624,7 @@ impl compilation_engine {
                 self.compile_class_var_dec()?;
             } else if tok.value == "constructor" || tok.value == "function" || tok.value == "method"
             {
-                self.compile_subroutine()?;
+                self.compile_subroutine(&class_identifier.value)?;
             } else if tok.value == "}" && tok.kind.as_str() == "symbol" {
                 let ending_bracket = self.expect_value("}")?;
 
@@ -667,18 +677,23 @@ impl compilation_engine {
         self.write_close_tag("classVarDec")?;
         Ok(())
     }
-    fn compile_subroutine(&mut self) -> io::Result<()> {
+    fn compile_subroutine(&mut self, className: &str) -> io::Result<()> {
         self.write_open_tag("subroutineDec")?;
         self.indentation += 2;
-        let kw_1 = self.expect_kind("keyword")?;
-        self.write_token(&kw_1.value, kw_1.kind.as_str())?;
+        let subroutine_kind = self.expect_kind("keyword")?;
 
-        let kw_2 = self.advance().expect("expected return type or 'void'");
+        // index should be 0 for the this
+        self.symbol_table.define("this", className, "argument");
+
+        // if subroutine_kind === constructor, keep note ofi t
+        self.write_token(&subroutine_kind.value, subroutine_kind.kind.as_str())?;
+
+        let kw_2 = self.expect_type()?;
         self.write_token(&kw_2.value, kw_2.kind.as_str())?;
 
-        let identifier = self.expect_kind("identifier")?;
+        let f_name = self.expect_kind("identifier")?; // f_name 
 
-        self.write_token(&identifier.value, identifier.kind.as_str())?;
+        self.write_token(&f_name.value, f_name.kind.as_str())?;
 
         let opening_parenthesis = self
             .advance()
@@ -691,14 +706,18 @@ impl compilation_engine {
 
         self.write_open_tag("parameterList")?;
         self.indentation += 2;
+
+        let mut num_of_params: usize = 0;
         if let Some(t) = self.peek() {
             if t.value != ")" {
                 self.compile_parameter_list()?;
+                num_of_params += 1;
                 while let Some(t) = self.peek() {
                     if t.value == "," {
                         let t = self.expect_value(",")?;
                         self.write_token(&t.value, t.kind.as_str())?;
                         self.compile_parameter_list()?;
+                        num_of_params += 1;
                     } else {
                         break;
                     }
@@ -722,7 +741,24 @@ impl compilation_engine {
         let opening_bracket = self.expect_value("{")?;
         self.write_token(&opening_bracket.value, opening_bracket.kind.as_str())?;
 
-        self.compile_var_dec()?;
+        let num_of_vars = self.compile_var_dec()?;
+
+        // need to declare function here
+        // need to keep count of how many variables are declared in a function
+        // function functionName num_of_vars
+        self.vm_writer.write_function(&f_name.value, num_of_vars)?;
+        if subroutine_kind.value == "constructor" {
+            // push num of args
+            // call Memory alloc
+            // pop pointer
+            self.vm_writer.write_push("constant", num_of_params)?;
+            self.vm_writer.write_call("Memory.alloc", 1)?;
+            self.vm_writer.write_pop("pointer", 0)?;
+        } else if subroutine_kind.value == "method" {
+            // arg + 0 holds the object ref, pop pointer 0 will store it in THIS register
+            self.vm_writer.write_push("argument", 0)?;
+            self.vm_writer.write_pop("pointer", 0)?;
+        }
 
         self.compile_statements()?;
 
@@ -749,8 +785,9 @@ impl compilation_engine {
 
         Ok(())
     }
-    fn compile_var_dec(&mut self) -> io::Result<()> {
+    fn compile_var_dec(&mut self) -> io::Result<usize> {
         let mut t_type = String::new();
+        let mut n_vars = 0;
 
         while let Some(tok) = self.peek() {
             if tok.value == "var" {
@@ -769,6 +806,7 @@ impl compilation_engine {
                         Some(t) => {
                             if t.kind == TOKEN_TYPE::IDENTIFIER {
                                 self.symbol_table.define(&t.value, t_type.as_str(), "local");
+                                n_vars += 1;
                             } else if t.value == ";" {
                                 self.write_token(&t.value, t.kind.as_str())?;
                                 break;
@@ -790,7 +828,7 @@ impl compilation_engine {
             }
         }
 
-        Ok(())
+        Ok(n_vars)
     }
     fn compile_statements(&mut self) -> io::Result<()> {
         self.write_open_tag("statements")?;
@@ -856,16 +894,6 @@ impl compilation_engine {
     fn compile_let(&mut self) -> io::Result<()> {
         self.write_open_tag("letStatement")?;
         self.indentation += 2;
-        //         Compiling statements
-        // For each variable found in a statement:
-        // The compiler looks up the variable in the method-level symbol table;
-        // If found, the variable is replaced with its segment i reference;
-        // Else, the compiler looks up the variable in the class-level symbol table;
-        // If found, the variable is replaced with its segment i reference;
-        // Else, the compiler throws a compilation error.
-        // For example, x + dx is compiled into push this 0, push local 0, add.
-
-        // let statement: 'let' varName ('[' expression ']')? '=' expression ';'
 
         let let_tok = self.expect_value("let")?;
         self.write_token(&let_tok.value, let_tok.kind.as_str())?;
@@ -875,18 +903,46 @@ impl compilation_engine {
         self.write_token(&varname_tok.value, varname_tok.kind.as_str())?;
 
         // we pop this at the end vm_writer.pop
-        let variable_to_assign_to = self.get_variable_from_scope(&varname_tok.value)?;
-        // //
-
-        //
-        //
-        //// ///
+        let (var_to_pop, var_to_pop_i, var_to_pop_segment) = {
+            let variable_to_pop = self.get_variable_from_scope(&varname_tok.value)?;
+            (
+                variable_to_pop.name.clone(),
+                variable_to_pop.index,
+                variable_to_pop.kind.kind_to_segment().to_owned(),
+            )
+        };
 
         if let Some(t) = self.peek() {
             if t.value == "[" {
+                // it could either be a let arr[5] = something or let something = arr[5] or let arr[3] = arr[5]
+                // we are an array
+                // in this particular arm we are handling this: let arr[5]  =====> arr = varname_tok
+                // let var = arr[4];
+                // so we need to emit vm code that takes base of arr, adds 4, then go to base + 4 and pop that to THAT
+
                 let open_bracket = self.expect_value("[")?;
                 self.write_token(&open_bracket.value, open_bracket.kind.as_str())?;
-                self.compile_expression()?;
+                // we push base of arr which is basically var.pop.segment and var.pop.index
+
+                /* // this compile expression will either return a
+                push constant n or
+
+                push constant n
+                push constant n
+                add
+
+                so we also need to push the base of arr
+
+                */
+                self.vm_writer
+                    .write_push(&var_to_pop_segment.clone(), var_to_pop_i.clone())?; // top of the stack holds base of the address
+
+                self.compile_expression()?; // now we are have an integer or integer + integer
+                // in the case of a single integer, the compile_expr will do a push constant integer
+                // if its a more complicated expression it will also add or substract numbers together and leave a value on top of the stack
+                // then we add base + the number returned by compile_Expr
+                self.vm_writer.write_arithmetic("add")?;
+
                 let close_bracket = self.expect_value("]")?;
                 self.write_token(&close_bracket.value, close_bracket.kind.as_str())?;
             }
@@ -894,12 +950,17 @@ impl compilation_engine {
 
         let eq_token = self.expect_value("=")?;
         self.write_token(&eq_token.value, eq_token.kind.as_str())?;
+        // handle let x = arr[4] case
         self.compile_expression()?;
         let semic_token = self.expect_value(";")?;
         self.write_token(&semic_token.value, semic_token.kind.as_str())?;
 
         self.indentation -= 2;
         self.write_close_tag("letStatement")?;
+
+        self.vm_writer
+            .write_pop(var_to_pop.as_str(), var_to_pop_i)?;
+
         Ok(())
     }
 
@@ -913,6 +974,16 @@ impl compilation_engine {
         self.write_token(&open_paren_token.value, open_paren_token.kind.as_str())?;
 
         self.compile_expression()?;
+        self.vm_writer.write_arithmetic("not")?;
+
+        let label_idx = self.label_index;
+        self.label_index += 1;
+
+        let if_false_label = format!("IF_FALSE${}", label_idx); // if condition is false run else statements
+        let if_true_label = format!("IF_TRUE${}", label_idx); // we use this label to jump over the false statements after running the first statements
+
+        self.vm_writer.write_if(&if_false_label)?;
+
         let close_paren_token = self.expect_value(")")?;
         self.write_token(&close_paren_token.value, close_paren_token.kind.as_str())?;
 
@@ -921,12 +992,15 @@ impl compilation_engine {
 
         self.compile_statements()?;
 
+        self.vm_writer.write_goto(&if_true_label)?;
+
         let close_bracket_token = self.expect_value("}")?;
         self.write_token(
             &close_bracket_token.value,
             close_bracket_token.kind.as_str(),
         )?;
 
+        self.vm_writer.write_label(&if_false_label)?;
         if let Some(t) = self.peek() {
             if t.value == "else" {
                 let else_tok = self.expect_value("else")?;
@@ -935,6 +1009,7 @@ impl compilation_engine {
                 let open_bracket_token = self.expect_value("{")?;
                 self.write_token(&open_bracket_token.value, open_bracket_token.kind.as_str())?;
                 self.compile_statements()?;
+
                 let close_bracket_token = self.expect_value("}")?;
 
                 self.write_token(
@@ -943,6 +1018,7 @@ impl compilation_engine {
                 )?;
             }
         }
+        self.vm_writer.write_label(&if_true_label)?;
         self.indentation -= 2;
         self.write_close_tag("ifStatement")?;
         Ok(())
@@ -957,7 +1033,16 @@ impl compilation_engine {
         let open_paren_token = self.expect_value("(")?;
         self.write_token(&open_paren_token.value, open_paren_token.kind.as_str())?;
 
+        let label_idx = self.label_index;
+        self.label_index += 1;
+
+        let if_false_label = format!("IF_FALSE${}", label_idx);
+        let if_true_label = format!("IF_TRUE${}", label_idx);
+
+        self.vm_writer.write_label(&if_true_label)?; // while start
         self.compile_expression()?;
+        self.vm_writer.write_arithmetic("not")?;
+        self.vm_writer.write_if(&if_false_label)?; // skip if false expression
 
         let close_paren_token = self.expect_value(")")?;
 
@@ -967,7 +1052,9 @@ impl compilation_engine {
         self.write_token(&open_bracket_token.value, open_bracket_token.kind.as_str())?;
 
         self.compile_statements()?;
+        self.vm_writer.write_goto(&if_true_label)?;
 
+        self.vm_writer.write_label(&if_false_label)?;
         let close_bracket_token = self.expect_value("}")?;
         self.write_token(
             &close_bracket_token.value,
@@ -987,6 +1074,9 @@ impl compilation_engine {
         if let Some(t) = self.peek() {
             if t.value != ";" {
                 self.compile_expression()?;
+                self.vm_writer.write_return(true)?;
+            } else {
+                self.vm_writer.write_return(false)?;
             }
         }
         let semic_token = self.expect_value(";")?;
@@ -1012,6 +1102,7 @@ impl compilation_engine {
                     let open_paren = self.expect_value("(")?;
                     self.write_token(&open_paren.value, open_paren.kind.as_str())?;
                     self.compile_expression_list()?;
+                    self.vm_writer.write_pop("temp", 0)?;
                     let close_paren = self.expect_value(")")?;
                     self.write_token(&close_paren.value, close_paren.kind.as_str())?;
                 }
@@ -1023,6 +1114,7 @@ impl compilation_engine {
                     let open_paren = self.expect_value("(")?;
                     self.write_token(&open_paren.value, open_paren.kind.as_str())?;
                     self.compile_expression_list()?;
+                    self.vm_writer.write_pop("temp", 0)?;
                     let close_paren = self.expect_value(")")?;
                     self.write_token(&close_paren.value, close_paren.kind.as_str())?;
                 }
@@ -1042,23 +1134,15 @@ impl compilation_engine {
     fn compile_expression(&mut self) -> io::Result<()> {
         self.write_open_tag("expression")?;
         self.indentation += 2;
-        //         if exp is "term1 op1 term2 op2 term3 op3 ... termn ":
-        // compileTerm(term1)
-        // compileTerm(term2)
-        // output "op1"
-        // so need to output two terms then operator, if exp is just term by itself such as term, then just compile term
-        // look ahead and see if the next token is a operator, if no, just compile term.
-        // if nextToken == operator then output: push curr, push curr+1, push operator
+
         self.compile_term()?;
-        // term + term - term + term would be:
-        // push term, push term, add, push term, sub, push term, add
 
         while self.is_operator() {
             self.normalize_symbol();
             let operator_tok = self.expect_kind("symbol")?;
             self.write_token(&operator_tok.value, operator_tok.kind.as_str())?;
             self.compile_term()?;
-            self.vm_writer.write_arithmetic(&operator_tok.value)?; // will come back here later
+            self.vm_writer.write_arithmetic(&operator_tok.value)?;
         }
         self.indentation -= 2;
 
@@ -1087,6 +1171,7 @@ impl compilation_engine {
                     if let Some(symbol_ahead) = self.peek() {
                         match symbol_ahead.value.as_str() {
                             "[" => {
+                                // vm to output ?
                                 let open_bracket = self.expect_value("[")?;
                                 self.write_token(&open_bracket.value, open_bracket.kind.as_str())?;
 
@@ -1105,9 +1190,15 @@ impl compilation_engine {
                                 self.write_token(&close_paren.value, close_paren.kind.as_str())?;
                             }
                             "." => {
+                                // handle vm output for subroutine calls //
+
+                                let class_name = first_tok.value.clone();
                                 let dot_token = self.expect_value(".")?;
                                 self.write_token(&dot_token.value, dot_token.kind.as_str())?;
                                 let subroutine_name_token = self.expect_kind("identifier")?;
+
+                                let full_subroutine_name =
+                                    format!("{}.{}", class_name, &subroutine_name_token.value);
 
                                 self.write_token(
                                     &subroutine_name_token.value,
@@ -1115,7 +1206,12 @@ impl compilation_engine {
                                 )?;
                                 let open_paren = self.expect_value("(")?;
                                 self.write_token(&open_paren.value, open_paren.kind.as_str())?;
-                                self.compile_expression_list()?;
+
+                                let n_args = self.compile_expression_list()?;
+
+                                self.vm_writer
+                                    .write_call(&full_subroutine_name, n_args + 1)?;
+
                                 let close_paren = self.expect_value(")")?;
                                 self.write_token(&close_paren.value, close_paren.kind.as_str())?;
                             }
@@ -1159,15 +1255,17 @@ impl compilation_engine {
 
         Ok(())
     }
-    fn compile_expression_list(&mut self) -> io::Result<()> {
+    fn compile_expression_list(&mut self) -> io::Result<usize> {
         self.write_open_tag("expressionList")?;
         self.indentation += 2;
+        let mut n_args: usize = 0;
 
         if let Some(tok) = self.peek() {
             match tok.value.as_str() {
                 ")" => {}
                 _ => {
                     self.compile_expression()?;
+                    n_args += 1;
 
                     loop {
                         if let Some(t) = self.peek() {
@@ -1176,6 +1274,7 @@ impl compilation_engine {
                                     let comma = self.expect_value(",")?;
                                     self.write_token(&comma.value, comma.kind.as_str())?;
                                     self.compile_expression()?;
+                                    n_args += 1;
                                 }
                                 _ => break,
                             }
@@ -1188,6 +1287,6 @@ impl compilation_engine {
         }
         self.indentation -= 2;
         self.write_close_tag("expressionList")?;
-        Ok(())
+        Ok(n_args)
     }
 }
