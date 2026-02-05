@@ -1165,16 +1165,6 @@ impl compilation_engine {
                     if let Some(symbol_ahead) = self.peek() {
                         match symbol_ahead.value.as_str() {
                             "[" => {
-                                // we are an array here so it looks something like:
-                                // let x = arr[ exprs ]
-                                /*
-                                we pushed arr already
-                                push num inside []
-                                add
-                                pop pointer 1 ( put value into THAT for use)
-                                 */
-                                // compile expression does push "add" in case we have a 2+2 inside the brackets, but we need to add again with base + exprValue
-
                                 let open_bracket = self.expect_value("[")?;
                                 self.write_token(&open_bracket.value, open_bracket.kind.as_str())?;
 
@@ -1200,7 +1190,7 @@ impl compilation_engine {
                             "." => {
                                 // handle vm output for subroutine calls //
 
-                                let class_name = first_tok.value.clone();
+                                let class_name = first_tok.value.clone(); // either class or 
                                 let dot_token = self.expect_value(".")?;
                                 self.write_token(&dot_token.value, dot_token.kind.as_str())?;
                                 let subroutine_name_token = self.expect_kind("identifier")?;
@@ -1233,6 +1223,23 @@ impl compilation_engine {
                     self.vm_writer.write_push("constant", parsedIndex)?;
                 }
                 "stringConstant" => {
+                    // ? handle
+                    let s_len = first_tok.value.len();
+                    self.vm_writer.write_push("constant", s_len)?;
+                    self.vm_writer.write_call("String.new", 1)?;
+                    // use String.appendChar(char) for each char
+                    // iterate over the string
+
+                    // fix later
+
+                    for c in first_tok.value.chars() {
+                        // unicode scalar val but we only handle asciis
+                        self.vm_writer.write_push(seg, index)?;
+                        self.vm_writer.write_push("constant", c as usize)?;
+                        self.vm_writer.write_call("String.appendChar", 2)?;
+                        self.vm_writer.write_pop("local", 0)?;
+                    }
+
                     self.write_token(&first_tok.value, first_tok.kind.as_str())?;
                 }
                 "symbol" => match first_tok.value.as_str() {
@@ -1254,6 +1261,22 @@ impl compilation_engine {
                     const KEYWORD_CONST: [&str; 4] = ["true", "false", "null", "this"];
                     if KEYWORD_CONST.contains(&first_tok.value.as_str()) {
                         self.write_token(&first_tok.value, "keyword")?;
+                        match first_tok.value.as_str() {
+                            "true" => {
+                                self.vm_writer.write_push("constant", 1)?;
+                                self.vm_writer.write_arithmetic("neg")?;
+                            }
+                            "false" => {
+                                self.vm_writer.write_push("constant", 0)?;
+                            }
+                            "null" => {
+                                self.vm_writer.write_push("constant", 0)?;
+                            }
+                            "this" => {
+                                self.vm_writer.write_push("pointer", 0)?;
+                            }
+                            _ => {}
+                        }
                     }
                 }
             }
