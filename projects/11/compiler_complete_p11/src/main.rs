@@ -113,53 +113,53 @@ impl VM_Writer {
         })
     }
     fn write_push(&mut self, segment: &str, index: usize) -> io::Result<()> {
-        let vm_to_write = format!(r#"push {} {}\n"#, segment, index);
+        let vm_to_write = format!("push {} {}\n", segment, index);
         self.write_to_file(vm_to_write)?;
 
         Ok(())
     }
     fn write_pop(&mut self, segment: &str, index: usize) -> io::Result<()> {
-        let vm_to_write = format!(r#"pop {} {}\n"#, segment, index);
+        let vm_to_write = format!("pop {} {}\n", segment, index);
         self.write_to_file(vm_to_write)?;
 
         Ok(())
     }
     fn write_arithmetic(&mut self, command: &str) -> io::Result<()> {
-        let vm_to_write = format!(r#"{}\n"#, command);
+        let vm_to_write = format!("{}\n", command);
         self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_label(&mut self, label: &str) -> io::Result<()> {
-        let vm_to_write = format!(r#"label {}\n"#, label);
+        let vm_to_write = format!("label {}\n", label);
         self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_goto(&mut self, label: &str) -> io::Result<()> {
-        let vm_to_write = format!(r#"goto {}\n"#, label);
+        let vm_to_write = format!("goto {}\n", label);
         self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_if(&mut self, label: &str) -> io::Result<()> {
-        let vm_to_write = format!(r#"if-goto {}\n"#, label);
+        let vm_to_write = format!("if-goto {}\n", label);
         self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_call(&mut self, name: &str, n_args: usize) -> io::Result<()> {
-        let vm_to_write = format!(r#"call {} {}\n"#, name, n_args);
+        let vm_to_write = format!("call {} {}\n", name, n_args);
         self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_function(&mut self, name: &str, n_locals: usize) -> io::Result<()> {
-        let vm_to_write = format!(r#"function {} {}\n"#, name, n_locals);
+        let vm_to_write = format!("function {} {}\n", name, n_locals);
         self.write_to_file(vm_to_write)?;
         Ok(())
     }
     fn write_return(&mut self, with_expression: bool) -> io::Result<()> {
         let vm_to_write = if with_expression == true {
-            format!(r#"return\n"#)
+            format!("return\n")
         } else {
             // push dummy value
-            format!(r#"push constant 0\n return\n"#)
+            format!("push constant 0\n return\n")
         };
         self.write_to_file(vm_to_write)?;
         Ok(())
@@ -566,6 +566,10 @@ impl compilation_engine {
         self.tokens.get(self.pos).cloned()
     }
 
+    fn peek_ahead(&self) -> Option<Token> {
+        self.tokens.get(self.pos + 1).cloned()
+    }
+
     fn write_open_tag(&mut self, s: &str) -> io::Result<()> {
         let indentation = " ".repeat(self.indentation);
         let s = format!("{indentation}<{s}>\n");
@@ -678,20 +682,20 @@ impl compilation_engine {
         Ok(())
     }
     fn compile_subroutine(&mut self, className: &str) -> io::Result<()> {
+        self.symbol_table.start_subroutine();
         self.write_open_tag("subroutineDec")?;
         self.indentation += 2;
         let subroutine_kind = self.expect_kind("keyword")?;
 
-        // index should be 0 for the this
-        self.symbol_table.define("this", className, "argument");
-
-        // if subroutine_kind === constructor, keep note ofi t
         self.write_token(&subroutine_kind.value, subroutine_kind.kind.as_str())?;
 
         let kw_2 = self.expect_type()?;
         self.write_token(&kw_2.value, kw_2.kind.as_str())?;
 
         let f_name = self.expect_kind("identifier")?; // f_name 
+        if f_name.value == "method" {
+            self.symbol_table.define("this", className, "argument");
+        }
 
         self.write_token(&f_name.value, f_name.kind.as_str())?;
 
@@ -775,7 +779,7 @@ impl compilation_engine {
         Ok(())
     }
     fn compile_parameter_list(&mut self) -> io::Result<()> {
-        //
+        // compiles one param but is called in a loop for all of them
         let t_token = self.expect_type()?;
         self.write_token(&t_token.value, t_token.kind.as_str())?;
         let n_token = self.expect_kind("identifier")?;
@@ -1104,13 +1108,18 @@ impl compilation_engine {
                     self.write_token(&close_paren.value, close_paren.kind.as_str())?;
                 }
                 "." => {
+                    // handle
                     let dot_tok = self.expect_value(".")?;
                     self.write_token(&dot_tok.value, dot_tok.kind.as_str())?;
                     let subroutine_name = self.expect_kind("identifier")?;
                     self.write_token(&subroutine_name.value, subroutine_name.kind.as_str())?;
+
+                    let full_name = format!("{}.{}", name_identifier.value, subroutine_name.value);
                     let open_paren = self.expect_value("(")?;
                     self.write_token(&open_paren.value, open_paren.kind.as_str())?;
-                    self.compile_expression_list()?;
+                    let n_args = self.compile_expression_list()?;
+
+                    self.vm_writer.write_call(&full_name, n_args)?;
                     self.vm_writer.write_pop("temp", 0)?;
                     let close_paren = self.expect_value(")")?;
                     self.write_token(&close_paren.value, close_paren.kind.as_str())?;
@@ -1162,7 +1171,7 @@ impl compilation_engine {
 
                     self.write_token(&first_tok.value, first_tok.kind.as_str())?;
 
-                    if let Some(symbol_ahead) = self.peek() {
+                    if let Some(symbol_ahead) = self.peek_ahead() {
                         match symbol_ahead.value.as_str() {
                             "[" => {
                                 let open_bracket = self.expect_value("[")?;
@@ -1181,14 +1190,27 @@ impl compilation_engine {
                                 )?;
                             }
                             "(" => {
+                                // HERE
+                                // we are a method in the same class
+                                // let x = someFunc(4)
+                                // we push reference of this and push num of args?
+                                let f_name = first_tok.value.clone();
                                 let open_paren = self.expect_value("(")?;
                                 self.write_token(&open_paren.value, open_paren.kind.as_str())?;
-                                self.compile_expression()?;
+                                // push reference of this first
+
+                                // self.vm_writer.write_push("it is running", 1)?;debug help not running
+
+                                let n_args = self.compile_expression_list()?;
+
+                                self.vm_writer.write_call(f_name.as_str(), n_args)?;
+                                // self.vm_writer.write_push("it is running", 2)?; // not running
+
                                 let close_paren = self.expect_value(")")?;
                                 self.write_token(&close_paren.value, close_paren.kind.as_str())?;
                             }
                             "." => {
-                                // handle vm output for subroutine calls //
+                                // handle vm output for subroutine calls
 
                                 let class_name = first_tok.value.clone(); // either class or 
                                 let dot_token = self.expect_value(".")?;
@@ -1234,7 +1256,7 @@ impl compilation_engine {
 
                     for c in first_tok.value.chars() {
                         // unicode scalar val but we only handle asciis
-                        self.vm_writer.write_push(seg, index)?;
+                        // self.vm_writer.write_push(seg, index)?;
                         self.vm_writer.write_push("constant", c as usize)?;
                         self.vm_writer.write_call("String.appendChar", 2)?;
                         self.vm_writer.write_pop("local", 0)?;
