@@ -24,14 +24,14 @@
               <term>
                 <integerConstant> 1 </integerConstant>
               </term>
-              <symbol> + </symbol>
+              <symbol> add </symbol>
               <term>
                 <symbol> ( </symbol>
                 <expression>
                   <term>
                     <integerConstant> 2 </integerConstant>
                   </term>
-                  <symbol> * </symbol>
+                  <symbol> divide </symbol>
                   <term>
                     <integerConstant> 3 </integerConstant>
                   </term>

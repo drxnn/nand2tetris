@@ -607,6 +607,11 @@ impl compilation_engine {
                 ">" => self.tokens[self.pos].value = "&gt;".to_string(),
                 "\"" => self.tokens[self.pos].value = "&quot;".to_string(),
                 "&" => self.tokens[self.pos].value = "&amp;".to_string(),
+                "+" => self.tokens[self.pos].value = "add".to_string(),
+                "*" => self.tokens[self.pos].value = "multiply".to_string(),
+                "/" => self.tokens[self.pos].value = "divide".to_string(),
+                "-" => self.tokens[self.pos].value = "sub".to_string(),
+
                 _ => (),
             }
         }
@@ -1148,7 +1153,14 @@ impl compilation_engine {
             let operator_tok = self.expect_kind("symbol")?;
             self.write_token(&operator_tok.value, operator_tok.kind.as_str())?;
             self.compile_term()?;
-            self.vm_writer.write_arithmetic(&operator_tok.value)?;
+
+            if operator_tok.value == "*" {
+                self.vm_writer.write_call("Math.multiply", 2)?;
+            } else if operator_tok.value == "divide" {
+                self.vm_writer.write_call("Math.divide", 2)?;
+            } else {
+                self.vm_writer.write_arithmetic(&operator_tok.value)?;
+            }
         }
         self.indentation -= 2;
 
