@@ -79,7 +79,7 @@ enum Identifier_Kind {
 }
 
 impl Identifier_Kind {
-    fn kind_to_segment(&self) -> &str {
+    fn kind_to_segment(&self) -> &'static str {
         match self {
             Identifier_Kind::STATIC => "static",
             Identifier_Kind::FIELD => "this",
@@ -903,50 +903,38 @@ impl compilation_engine {
         self.write_token(&varname_tok.value, varname_tok.kind.as_str())?;
 
         // we pop this at the end vm_writer.pop
-        let (var_to_pop, var_to_pop_i, var_to_pop_segment) = {
+        let (var_to_pop_i, var_to_pop_segment) = {
             let variable_to_pop = self.get_variable_from_scope(&varname_tok.value)?;
             (
-                variable_to_pop.name.clone(),
                 variable_to_pop.index,
-                variable_to_pop.kind.kind_to_segment().to_owned(),
+                variable_to_pop.kind.kind_to_segment(),
             )
         };
 
-        if let Some(t) = self.peek() {
+        let is_arr_assignment = if let Some(t) = self.peek() {
             if t.value == "[" {
-                // it could either be a let arr[5] = something or let something = arr[5] or let arr[3] = arr[5]
                 // we are an array
-                // in this particular arm we are handling this: let arr[5]  =====> arr = varname_tok
-                // let var = arr[4];
-                // so we need to emit vm code that takes base of arr, adds 4, then go to base + 4 and pop that to THAT
-
                 let open_bracket = self.expect_value("[")?;
                 self.write_token(&open_bracket.value, open_bracket.kind.as_str())?;
-                // we push base of arr which is basically var.pop.segment and var.pop.index
 
-                /* // this compile expression will either return a
-                push constant n or
-
-                push constant n
-                push constant n
-                add
-
-                so we also need to push the base of arr
-
-                */
                 self.vm_writer
-                    .write_push(&var_to_pop_segment.clone(), var_to_pop_i.clone())?; // top of the stack holds base of the address
+                    .write_push(&var_to_pop_segment, var_to_pop_i)?; // top of the stack holds base of the address
+                // following my logic in the case of:
+                // let a[i] = b[j]
+                // would emit the following vmcodE:
 
-                self.compile_expression()?; // now we are have an integer or integer + integer
-                // in the case of a single integer, the compile_expr will do a push constant integer
-                // if its a more complicated expression it will also add or substract numbers together and leave a value on top of the stack
-                // then we add base + the number returned by compile_Expr
+                self.compile_expression()?;
                 self.vm_writer.write_arithmetic("add")?;
 
                 let close_bracket = self.expect_value("]")?;
                 self.write_token(&close_bracket.value, close_bracket.kind.as_str())?;
+                true
+            } else {
+                false
             }
-        }
+        } else {
+            false
+        };
 
         let eq_token = self.expect_value("=")?;
         self.write_token(&eq_token.value, eq_token.kind.as_str())?;
@@ -958,8 +946,17 @@ impl compilation_engine {
         self.indentation -= 2;
         self.write_close_tag("letStatement")?;
 
-        self.vm_writer
-            .write_pop(var_to_pop.as_str(), var_to_pop_i)?;
+        if is_arr_assignment {
+            // store value from the rhs in temp, store lhs arr in THAT
+            // push temp to stack, pop temp and put in value inside THAT
+            self.vm_writer.write_pop("temp", 0)?;
+            self.vm_writer.write_pop("pointer", 1)?;
+            self.vm_writer.write_push("temp", 0)?;
+
+            self.vm_writer.write_pop("that", 0)?;
+        } else {
+            self.vm_writer.write_pop(var_to_pop_segment, var_to_pop_i)?;
+        }
 
         Ok(())
     }
@@ -1154,28 +1151,39 @@ impl compilation_engine {
         self.write_open_tag("term")?;
         self.indentation += 2;
 
-        // if the term is a varname, push it
         if let Some(first_tok) = self.advance() {
             match first_tok.kind.as_str() {
                 "identifier" => {
                     let var_name: &IdentifierEntry =
                         self.get_variable_from_scope(&first_tok.value)?;
 
-                    self.vm_writer.write_push(
-                        var_name.kind.kind_to_segment().to_owned().as_str(),
-                        var_name.index,
-                    )?;
+                    self.vm_writer
+                        .write_push(var_name.kind.kind_to_segment(), var_name.index)?;
 
                     self.write_token(&first_tok.value, first_tok.kind.as_str())?;
 
                     if let Some(symbol_ahead) = self.peek() {
                         match symbol_ahead.value.as_str() {
                             "[" => {
-                                // vm to output ?
+                                // we are an array here so it looks something like:
+                                // let x = arr[ exprs ]
+                                /*
+                                we pushed arr already
+                                push num inside []
+                                add
+                                pop pointer 1 ( put value into THAT for use)
+                                 */
+                                // compile expression does push "add" in case we have a 2+2 inside the brackets, but we need to add again with base + exprValue
+
                                 let open_bracket = self.expect_value("[")?;
                                 self.write_token(&open_bracket.value, open_bracket.kind.as_str())?;
 
                                 self.compile_expression()?;
+                                self.vm_writer.write_arithmetic("add")?;
+                                self.vm_writer.write_pop("pointer", 1)?;
+
+                                self.vm_writer.write_push("that", 0)?;
+
                                 let close_bracket = self.expect_value("]")?;
                                 self.write_token(
                                     &close_bracket.value,
