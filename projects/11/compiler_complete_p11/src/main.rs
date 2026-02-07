@@ -1,12 +1,10 @@
 #![allow(dead_code, non_snake_case)]
 use regex::Regex;
 
-use core::{fmt, num};
-use std::any::Any;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Write};
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use std::{env, io, usize};
 
@@ -14,7 +12,22 @@ fn main() -> io::Result<()> {
     let mut args = env::args();
     args.next();
 
-    let input_name = args.next().expect("Please provide a filename as argument");
+    // if filename -> run compile_engine
+    // if folder -> run compilation_engine per jack file and output fileName.vm
+    let input_name = args
+        .next()
+        .expect("Please provide a file or folder as an argument");
+
+    if Path::new(&input_name).is_dir() {
+        for entry in std::fs::read_dir(&input_name)? {
+            let entry = entry?;
+            if let Some(ext) = entry.path().extension() {
+                if ext == "jack" {
+                    compile(f_path)
+                }
+            }
+        }
+    }
     let input_path = PathBuf::from(input_name.clone());
     let buffer = fs::read_to_string(input_name)?;
     if input_path.is_file() {
@@ -25,6 +38,25 @@ fn main() -> io::Result<()> {
             jack_t.write_token_file();
         }
 
+        // currently only does 1 file
+        let mut c_engine = compilation_engine::new(jack_t.tokens).unwrap();
+
+        c_engine.compile_class()?;
+    }
+
+    Ok(())
+}
+fn compile(f_path: PathBuf) -> io::Result<()> {
+    let buffer = fs::read_to_string(&f_path)?;
+    if f_path.is_file() {
+        let mut jack_t = jack_tokenizer::new(&buffer);
+
+        while jack_t.has_more_tokens() {
+            jack_t.advance();
+            jack_t.write_token_file();
+        }
+
+        // currently only does 1 file
         let mut c_engine = compilation_engine::new(jack_t.tokens).unwrap();
 
         c_engine.compile_class()?;
