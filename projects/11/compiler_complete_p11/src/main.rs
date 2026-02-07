@@ -1,6 +1,8 @@
 #![allow(dead_code, non_snake_case)]
 use regex::Regex;
 
+use std::ffi::OsStr;
+use std::fmt::format;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Write};
 
@@ -18,15 +20,19 @@ fn main() -> io::Result<()> {
         .next()
         .expect("Please provide a file or folder as an argument");
 
-    if Path::new(&input_name).is_dir() {
+    let p = Path::new(&input_name);
+
+    if p.is_dir() {
         for entry in std::fs::read_dir(&input_name)? {
             let entry = entry?;
             if let Some(ext) = entry.path().extension() {
                 if ext == "jack" {
-                    compile(f_path)
+                    compile(entry.path())?;
                 }
             }
         }
+    } else {
+        compile(p.to_path_buf())?; // single f
     }
     let input_path = PathBuf::from(input_name.clone());
     let buffer = fs::read_to_string(input_name)?;
@@ -39,15 +45,13 @@ fn main() -> io::Result<()> {
         }
 
         // currently only does 1 file
-        let mut c_engine = compilation_engine::new(jack_t.tokens).unwrap();
-
-        c_engine.compile_class()?;
     }
 
     Ok(())
 }
 fn compile(f_path: PathBuf) -> io::Result<()> {
     let buffer = fs::read_to_string(&f_path)?;
+    // f_path is file.jack -> just pass file to vm_out_file
     if f_path.is_file() {
         let mut jack_t = jack_tokenizer::new(&buffer);
 
@@ -55,9 +59,13 @@ fn compile(f_path: PathBuf) -> io::Result<()> {
             jack_t.advance();
             jack_t.write_token_file();
         }
-
+        let vm_output_file: &OsStr = f_path.file_stem().unwrap(); // add .vm to it
+        fs::create_dir_all("./output")?;
+        let final_path = format!("./output/{}.vm", vm_output_file.to_str().unwrap());
+        let path = Path::new(&final_path);
+        println!("path is {:?}", path);
         // currently only does 1 file
-        let mut c_engine = compilation_engine::new(jack_t.tokens).unwrap();
+        let mut c_engine = compilation_engine::new(jack_t.tokens, path).unwrap();
 
         c_engine.compile_class()?;
     }
@@ -133,12 +141,14 @@ struct VM_Writer {
     file: Option<BufWriter<File>>,
 }
 impl VM_Writer {
-    fn new(filename: &str) -> io::Result<Self> {
+    fn new(path: &Path) -> io::Result<Self> {
+        println!("path is in vm writer:{:?}", path);
         let file = OpenOptions::new()
             .truncate(true)
             .write(true)
             .create(true)
-            .open(filename)?;
+            .open(path)?;
+        println!("path has passed file creation :{:?}", path);
 
         Ok(Self {
             file: Some(BufWriter::new(file)),
@@ -495,7 +505,7 @@ struct compilation_engine {
 }
 
 impl compilation_engine {
-    fn new(tokens: Vec<Token>) -> io::Result<Self> {
+    fn new(tokens: Vec<Token>, path: &Path) -> io::Result<Self> {
         let file = OpenOptions::new()
             .truncate(true)
             .write(true)
@@ -504,7 +514,9 @@ impl compilation_engine {
             .unwrap();
 
         let symbol_table = symbol_table::new();
-        let vm_writer = VM_Writer::new("output.vm")?; // will fix later 
+        println!("path is here {:?}", path);
+        let vm_writer = VM_Writer::new(path)?; // will fix later 
+        println!("path is passing vm writer {:?}", path);
         let writer = Self {
             symbol_table,
             file: Some(BufWriter::new(file)),
