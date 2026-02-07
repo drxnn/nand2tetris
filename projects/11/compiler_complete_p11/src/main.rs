@@ -83,7 +83,7 @@ impl Identifier_Kind {
         match self {
             Identifier_Kind::STATIC => "static",
             Identifier_Kind::FIELD => "this",
-            Identifier_Kind::ARG => "arg",
+            Identifier_Kind::ARG => "argument",
             Identifier_Kind::VAR => "local",
         }
     }
@@ -456,8 +456,10 @@ struct compilation_engine {
     pos: usize,
     indentation: usize,
     symbol_table: symbol_table,
+
     vm_writer: VM_Writer,
     label_index: usize,
+    curr_class: Option<String>,
 }
 
 impl compilation_engine {
@@ -479,6 +481,7 @@ impl compilation_engine {
             indentation: 0,
             vm_writer,
             label_index: 0,
+            curr_class: None,
         };
         Ok(writer)
     }
@@ -603,10 +606,11 @@ impl compilation_engine {
     fn normalize_symbol(&mut self) {
         if let Some(s) = self.peek() {
             match s.value.as_str() {
-                "<" => self.tokens[self.pos].value = "&lt;".to_string(),
-                ">" => self.tokens[self.pos].value = "&gt;".to_string(),
+                "<" => self.tokens[self.pos].value = "lt".to_string(),
+                "=" => self.tokens[self.pos].value = "eq".to_string(),
+                ">" => self.tokens[self.pos].value = "gt".to_string(),
                 "\"" => self.tokens[self.pos].value = "&quot;".to_string(),
-                "&" => self.tokens[self.pos].value = "&amp;".to_string(),
+                "&" => self.tokens[self.pos].value = "and".to_string(),
                 "+" => self.tokens[self.pos].value = "add".to_string(),
                 "*" => self.tokens[self.pos].value = "multiply".to_string(),
                 "/" => self.tokens[self.pos].value = "divide".to_string(),
@@ -624,6 +628,7 @@ impl compilation_engine {
 
         self.write_token(&class_tok.value, class_tok.kind.as_str())?;
         let class_identifier = self.expect_kind("identifier")?; // className
+        self.curr_class = Some(class_identifier.value.clone());
         self.write_token(&class_identifier.value, class_identifier.kind.as_str())?;
         let open_bracket = self.expect_value("{")?;
         self.write_token(&open_bracket.value, open_bracket.kind.as_str())?;
@@ -662,9 +667,6 @@ impl compilation_engine {
         loop {
             match self.advance() {
                 Some(t) => {
-                    // here we are looping over tokens, looks like this for example: int x, y, z;
-                    // is it possible to get name(x then y then z) and type without refactoring the loop?
-
                     if t.value == ";" {
                         self.write_token(&t.value, t.kind.as_str())?;
                         break;
@@ -698,7 +700,7 @@ impl compilation_engine {
         self.write_token(&kw_2.value, kw_2.kind.as_str())?;
 
         let f_name = self.expect_kind("identifier")?; // f_name 
-        if f_name.value == "method" {
+        if subroutine_kind.value == "method" {
             self.symbol_table.define("this", className, "argument");
         }
 
@@ -755,12 +757,16 @@ impl compilation_engine {
         // need to declare function here
         // need to keep count of how many variables are declared in a function
         // function functionName num_of_vars
-        self.vm_writer.write_function(&f_name.value, num_of_vars)?;
+        let full_f_name = format!("{}.{}", self.curr_class.clone().unwrap(), f_name.value);
+        self.vm_writer.write_function(&full_f_name, num_of_vars)?;
         if subroutine_kind.value == "constructor" {
             // push num of args
             // call Memory alloc
             // pop pointer
-            self.vm_writer.write_push("constant", num_of_params)?;
+            // memory alloc allocates amount of vars so get num of fields for class:
+
+            self.vm_writer
+                .write_push("constant", self.symbol_table.field_index)?;
             self.vm_writer.write_call("Memory.alloc", 1)?;
             self.vm_writer.write_pop("pointer", 0)?;
         } else if subroutine_kind.value == "method" {
@@ -790,7 +796,7 @@ impl compilation_engine {
         let n_token = self.expect_kind("identifier")?;
         self.write_token(&n_token.value, n_token.kind.as_str())?;
         self.symbol_table
-            .define(&n_token.value, &t_token.value, "arg");
+            .define(&n_token.value, &t_token.value, "argument");
 
         Ok(())
     }
@@ -814,7 +820,7 @@ impl compilation_engine {
                     match self.advance() {
                         Some(t) => {
                             if t.kind == TOKEN_TYPE::IDENTIFIER {
-                                self.symbol_table.define(&t.value, t_type.as_str(), "local");
+                                self.symbol_table.define(&t.value, t_type.as_str(), "var");
                                 n_vars += 1;
                             } else if t.value == ";" {
                                 self.write_token(&t.value, t.kind.as_str())?;
@@ -880,9 +886,6 @@ impl compilation_engine {
         &self,
         var_to_look_for: &str,
     ) -> Result<&IdentifierEntry, std::io::Error> {
-        // look for variable in subroutine scope, if found return
-        // else look in class cope if found return
-        // else compilation error
         let variable = self
             .symbol_table
             .subroutine_scope
@@ -897,7 +900,7 @@ impl compilation_engine {
 
         return variable.ok_or(std::io::Error::new(
             io::ErrorKind::NotFound,
-            "Something went wrong. Variable no found in either method or class scopes.",
+            format!("Something went wrong. Variable no found in either method or class scopes. Var that we looked for is: {}", var_to_look_for),
         ));
     }
     fn compile_let(&mut self) -> io::Result<()> {
@@ -926,13 +929,10 @@ impl compilation_engine {
                 let open_bracket = self.expect_value("[")?;
                 self.write_token(&open_bracket.value, open_bracket.kind.as_str())?;
 
-                self.vm_writer
-                    .write_push(&var_to_pop_segment, var_to_pop_i)?; // top of the stack holds base of the address
-                // following my logic in the case of:
-                // let a[i] = b[j]
-                // would emit the following vmcodE:
-
                 self.compile_expression()?;
+
+                self.vm_writer
+                    .write_push(&var_to_pop_segment, var_to_pop_i)?;
                 self.vm_writer.write_arithmetic("add")?;
 
                 let close_bracket = self.expect_value("]")?;
@@ -1099,39 +1099,9 @@ impl compilation_engine {
         let do_tok = self.expect_value("do")?;
         self.write_token(&do_tok.value, do_tok.kind.as_str())?;
 
-        let name_identifier = self.expect_kind("identifier")?;
-        self.write_token(&name_identifier.value, name_identifier.kind.as_str())?;
+        self.compile_expression()?; // handles functions here
 
-        if let Some(t) = self.peek() {
-            match t.value.as_str() {
-                "(" => {
-                    let open_paren = self.expect_value("(")?;
-                    self.write_token(&open_paren.value, open_paren.kind.as_str())?;
-                    self.compile_expression_list()?;
-                    self.vm_writer.write_pop("temp", 0)?;
-                    let close_paren = self.expect_value(")")?;
-                    self.write_token(&close_paren.value, close_paren.kind.as_str())?;
-                }
-                "." => {
-                    // handle
-                    let dot_tok = self.expect_value(".")?;
-                    self.write_token(&dot_tok.value, dot_tok.kind.as_str())?;
-                    let subroutine_name = self.expect_kind("identifier")?;
-                    self.write_token(&subroutine_name.value, subroutine_name.kind.as_str())?;
-
-                    let full_name = format!("{}.{}", name_identifier.value, subroutine_name.value);
-                    let open_paren = self.expect_value("(")?;
-                    self.write_token(&open_paren.value, open_paren.kind.as_str())?;
-                    let n_args = self.compile_expression_list()?;
-
-                    self.vm_writer.write_call(&full_name, n_args)?;
-                    self.vm_writer.write_pop("temp", 0)?;
-                    let close_paren = self.expect_value(")")?;
-                    self.write_token(&close_paren.value, close_paren.kind.as_str())?;
-                }
-                _ => {}
-            }
-        }
+        self.vm_writer.write_pop("temp", 0)?;
 
         let semic_token = self.expect_value(";")?;
         self.write_token(&semic_token.value, semic_token.kind.as_str())?;
@@ -1154,7 +1124,7 @@ impl compilation_engine {
             self.write_token(&operator_tok.value, operator_tok.kind.as_str())?;
             self.compile_term()?;
 
-            if operator_tok.value == "*" {
+            if operator_tok.value == "multiply" {
                 self.vm_writer.write_call("Math.multiply", 2)?;
             } else if operator_tok.value == "divide" {
                 self.vm_writer.write_call("Math.divide", 2)?;
@@ -1171,21 +1141,24 @@ impl compilation_engine {
     fn compile_term(&mut self) -> io::Result<()> {
         self.write_open_tag("term")?;
         self.indentation += 2;
+        // let game = SquareGame.new()
+        //       here
 
         if let Some(first_tok) = self.advance() {
             match first_tok.kind.as_str() {
                 "identifier" => {
-                    let var_name: &IdentifierEntry =
-                        self.get_variable_from_scope(&first_tok.value)?;
-
-                    self.vm_writer
-                        .write_push(var_name.kind.kind_to_segment(), var_name.index)?;
-
-                    self.write_token(&first_tok.value, first_tok.kind.as_str())?;
-
-                    if let Some(symbol_ahead) = self.peek_ahead() {
+                    if let Some(symbol_ahead) = self.peek() {
                         match symbol_ahead.value.as_str() {
+                            // let a[b[a[3]]] = a[a[5]] * b[((7 - a[3]) - Main.double(2)) + 1];
                             "[" => {
+                                /*
+                                push local 0
+
+                                */
+                                let var_name = self.get_variable_from_scope(&first_tok.value)?;
+                                self.vm_writer
+                                    .write_push(var_name.kind.kind_to_segment(), var_name.index)?;
+
                                 let open_bracket = self.expect_value("[")?;
                                 self.write_token(&open_bracket.value, open_bracket.kind.as_str())?;
 
@@ -1202,52 +1175,64 @@ impl compilation_engine {
                                 )?;
                             }
                             "(" => {
-                                // HERE
-                                // we are a method in the same class
-                                // let x = someFunc(4)
-                                // we push reference of this and push num of args?
                                 let f_name = first_tok.value.clone();
                                 let open_paren = self.expect_value("(")?;
                                 self.write_token(&open_paren.value, open_paren.kind.as_str())?;
-                                // push reference of this first
 
-                                // self.vm_writer.write_push("it is running", 1)?;debug help not running
-
+                                self.vm_writer.write_push("pointer", 0)?;
                                 let n_args = self.compile_expression_list()?;
+                                let curr_class = self.curr_class.clone().unwrap();
 
-                                self.vm_writer.write_call(f_name.as_str(), n_args)?;
-                                // self.vm_writer.write_push("it is running", 2)?; // not running
+                                let full_name = format!("{}.{}", curr_class, f_name);
+                                self.vm_writer.write_call(&full_name, n_args + 1)?;
 
                                 let close_paren = self.expect_value(")")?;
                                 self.write_token(&close_paren.value, close_paren.kind.as_str())?;
                             }
                             "." => {
-                                // handle vm output for subroutine calls
-
-                                let class_name = first_tok.value.clone(); // either class or 
                                 let dot_token = self.expect_value(".")?;
                                 self.write_token(&dot_token.value, dot_token.kind.as_str())?;
                                 let subroutine_name_token = self.expect_kind("identifier")?;
-
-                                let full_subroutine_name =
-                                    format!("{}.{}", class_name, &subroutine_name_token.value);
 
                                 self.write_token(
                                     &subroutine_name_token.value,
                                     subroutine_name_token.kind.as_str(),
                                 )?;
+
                                 let open_paren = self.expect_value("(")?;
                                 self.write_token(&open_paren.value, open_paren.kind.as_str())?;
 
-                                let n_args = self.compile_expression_list()?;
+                                if let Ok(entry) = self.get_variable_from_scope(&first_tok.value) {
+                                    let type_name = entry.type_name.to_owned();
+                                    let index = entry.index;
+                                    let segment = entry.kind.kind_to_segment().to_owned();
 
-                                self.vm_writer
-                                    .write_call(&full_subroutine_name, n_args + 1)?;
+                                    self.vm_writer.write_push(segment.as_str(), index)?;
+
+                                    let n_args = self.compile_expression_list()?;
+                                    let full_subroutine_name =
+                                        format!("{}.{}", type_name, &subroutine_name_token.value);
+                                    self.vm_writer
+                                        .write_call(&full_subroutine_name, n_args + 1)?;
+                                } else {
+                                    //
+                                    let n_args = self.compile_expression_list()?;
+                                    let full_subroutine_name = format!(
+                                        "{}.{}",
+                                        first_tok.value, subroutine_name_token.value
+                                    );
+                                    self.vm_writer.write_call(&full_subroutine_name, n_args)?;
+                                }
 
                                 let close_paren = self.expect_value(")")?;
                                 self.write_token(&close_paren.value, close_paren.kind.as_str())?;
                             }
-                            _ => {}
+                            _ => {
+                                let entry = self.get_variable_from_scope(&first_tok.value)?;
+                                let segment = entry.kind.kind_to_segment();
+                                let index = entry.index;
+                                self.vm_writer.write_push(segment, index)?;
+                            }
                         }
                     }
                 }
@@ -1271,7 +1256,6 @@ impl compilation_engine {
                         // self.vm_writer.write_push(seg, index)?;
                         self.vm_writer.write_push("constant", c as usize)?;
                         self.vm_writer.write_call("String.appendChar", 2)?;
-                        self.vm_writer.write_pop("local", 0)?;
                     }
 
                     self.write_token(&first_tok.value, first_tok.kind.as_str())?;
