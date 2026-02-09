@@ -9,18 +9,51 @@
  *  using calls to OS functions in this class.
  */
 class Math {
-    static int n;             // Number of bits used for representing a two's complement integer
+
     static Array powersOfTwo; // Stores 2^0, 2^1, 2^2,..., 2^(n-1)
+    static int nBits;
+
 
     // Initializes the Math library.
     function void init() {
+        var int counter, n;
+        let nBits = 16;
+        let n = 1;
+        let powersOfTwo = Array.new(16);
+        let counter = 0;
+        while (counter < 16) {
+            let powersOfTwo[counter] = n;
+            let n = n + n;
+            let counter = counter + 1;
+        }
     }
 
-    /** Returns the product of x and y. 
-     *  When a Jack compiler detects the multiplication operator '*'
-     *  in an expression, it handles it by invoking this method. 
-     *  Thus, in Jack, x * y and Math.multiply(x,y) return the same value. */
+
+// we do x AND 2^j, and if the bits are both 1 in both numbers, we basically get 2^j back(true else false);
+  function boolean bit(int x, int j) {
+    var int temp;
+    let temp = x & powersOfTwo[j];
+    if(temp = powersOfTwo[j]) {
+        return -1;
+    }
+    return 0;
+  
+  }
+
     function int multiply(int x, int y) {
+        var int sum, counter, shiftedX;
+         let sum = 0;
+         let shiftedX = x; 
+         let counter = 0;
+
+        while (counter < 16) {
+            if (bit(y, counter)){
+                let sum = sum + shiftedX;
+            }
+             let shiftedX = shiftedX + shiftedX
+             let counter = counter + 1;
+        }
+        return sum;
     }
 
     /** Returns the integer part of x / y.
