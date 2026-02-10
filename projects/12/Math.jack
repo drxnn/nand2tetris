@@ -26,6 +26,7 @@ class Math {
             let n = n + n;
             let counter = counter + 1;
         }
+        return;
     }
 
 
@@ -41,6 +42,23 @@ class Math {
   }
 
     function int multiply(int x, int y) {
+        // what if one is negative? we can check flip it, multiply, then at the end we unflip.
+        var boolean xNeg, yNeg;
+        if (x<0) {
+            let xNeg = -1;
+            let x = ~(x) + 1; // flip x
+
+        }
+          if (y<0) {
+            let yNeg = -1;
+            let y = ~(y) + 1; // flip x
+        }
+
+        if (xNeg & yNeg) {
+            let xNeg = 0;
+            let yNeg = 0;
+            // basically if both were negative, now they are both positive so no need for anything at the end.
+        }
         var int sum, counter, shiftedX;
          let sum = 0;
          let shiftedX = x; 
@@ -52,6 +70,10 @@ class Math {
             }
              let shiftedX = shiftedX + shiftedX;
              let counter = counter + 1;
+        }
+
+        if (xNeg | yNeg) {
+            let sum = ~(sum) + 1; // revert back to negative
         }
         return sum;
     }
@@ -124,6 +146,10 @@ class Math {
         if(x > 0) {
             return x;
         }
+        // edge case if x == -32768
+          if (~(x < -32768) & ~(x > -32768)) {
+        return 32767; 
+    }
         let x = ~(x) + 1;
         return x;
 
