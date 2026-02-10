@@ -46,12 +46,12 @@ class Math {
         var boolean xNeg, yNeg;
         if (x<0) {
             let xNeg = -1;
-            let x = ~(x) + 1; // flip x
+            let x = Math.abs(x);
 
         }
           if (y<0) {
             let yNeg = -1;
-            let y = ~(y) + 1; // flip x
+            let y = Math.abs(y);
         }
 
         if (xNeg & yNeg) {
@@ -147,6 +147,7 @@ class Math {
             return x;
         }
         // edge case if x == -32768
+        // because we use twos complement 
           if (~(x < -32768) & ~(x > -32768)) {
         return 32767; 
     }
