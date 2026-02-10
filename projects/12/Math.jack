@@ -33,7 +33,7 @@ class Math {
   function boolean bit(int x, int j) {
     var int temp;
     let temp = x & powersOfTwo[j];
-    if(temp = powersOfTwo[j]) {
+    if(~(temp < powersOfTwo[j]) & ~(temp > powersOfTwo[j])) {
         return -1;
     }
     return 0;
@@ -50,32 +50,82 @@ class Math {
             if (bit(y, counter)){
                 let sum = sum + shiftedX;
             }
-             let shiftedX = shiftedX + shiftedX
+             let shiftedX = shiftedX + shiftedX;
              let counter = counter + 1;
         }
         return sum;
     }
 
-    /** Returns the integer part of x / y.
-     *  When a Jack compiler detects the division operator '/'
-     *  an an expression, it handles it by invoking this method.
-     *  Thus, x/y and Math.divide(x,y) return the same value. */
+
     function int divide(int x, int y) {
+        var int q, yParam;
+        // what if negative? 
+        if (~(y > 0) & ~(y < 0)) {
+            return 0; // basically error
+        }
+
+    if (y > x) {
+        return 0;
+    }
+        let yParam = y + y;
+        let q = divide(x, yParam); 
+            if((x - 2 * q * y) < y) {
+        return 2 * q;
+    }
+    return 2 * q + 1;
+
     }
 
     /** Returns the integer part of the square root of x. */
     function int sqrt(int x) {
+        
+        var int temp, y, j, squared;
+        let j  = 7; // jack is 16bit pc so n/2 - 1 = 7;
+        let y = 0;
+
+        if (x < 0) {
+        return 0;
+    }
+
+        while(~(j<0)) {
+        let temp = y + powersOfTwo[j];
+        let squared = temp * temp;
+
+        if(~(squared > x) ) {
+            let y = temp;
+        }
+        let j = j - 1;
+
+        }
+        
+
+    return y;
     }
 
     /** Returns the greater value. */
     function int max(int a, int b) {
+        if(a > b) {
+            return a;
+        }
+        return b;
     }
 
     /** Returns the smaller value. */
     function int min(int a, int b) {
+        // if equal b returns
+        if(a < b) {
+            return a;
+        }
+        return b;
     }
 
     /** Returns the absolute value of x. */
     function int abs(int x) {
+        if(x > 0) {
+            return x;
+        }
+        let x = ~(x) + 1;
+        return x;
+
     }
 }
