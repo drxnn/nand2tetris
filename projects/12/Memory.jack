@@ -3,7 +3,7 @@ class Memory {
  static Array ram;
  static int head, heap;
 
-    function void init() {
+function void init() {
         var int heapSize;
 
     let ram = 0;
@@ -36,33 +36,7 @@ class Memory {
      *  a reference to its base address. */
     
     
-   function void defrag() {
-    var int curr, next, currSize, nextSize, nextNext, mergedSize;
-     let curr = head;
 
-     while(curr) { // if curr 0 stop
-        let next = Memory.peek(curr);
-        let currSize = Memory.peek(curr + 1);
-        if((curr + currSize) = next) {
-            // we are adjacent so merge;
-            let nextSize = Memory.peek(next + 1);
-            let nextNext = Memory.peek(next);
-            let mergedSize = nextSize + currSize;
-            do Memory.poke(curr, nextNext);
-            do Memory.poke(curr + 1, mergedSize);
-
-            
-            
-        }
-        if (~((curr + currSize) = next)){
-    let curr = next;
-
-        }
-   
-    
-     }
-     return;
-    }
 
     /** De-allocates the given object (cast as an array) by making
      *  it available for future allocations. */
@@ -74,11 +48,11 @@ class Memory {
         let curr = head;
         let segmentAddress = o - 2; 
         let prev = 0;
-        // not keeping track of prev to merge linked list
+
         while (curr) {
             let nextPointer = Memory.peek(curr);
         if (curr > segmentAddress) { 
-            // put o before curr
+
             if (prev = 0) {
             
                 let head = segmentAddress;
@@ -125,12 +99,12 @@ function int tryAlloc(int size) {
                 let addrToReturn = curr + 2;
            
                 do Memory.poke(curr + 1, size); // put obj size theres
-                do Memory.poke(curr, 0);// => no need to point at anything anymore its taken // this address now isnt really a pointer since its part of an object, it doesnt have a meaningful basis // remember when dealloc that this field means nothing
+                do Memory.poke(curr, 0); // => no need to point at anything anymore its taken // this address now isnt really a pointer since its part of an object, it doesnt have a meaningful basis // remember when dealloc that this field means nothing
                 
                  
                 if (remainingHeap > 2) {
                        if (prev = 0) { 
-                        // no prev, update head
+
                     let head = curr + neededSize;
                     do Memory.poke(head, next);
                     do Memory.poke(head + 1, remainingHeap);
@@ -163,7 +137,7 @@ function int tryAlloc(int size) {
 
         }
 
-// failed if we are here
+// fail
         return 0;
 
 } 
@@ -182,4 +156,31 @@ function Array alloc(int size) {
 
 
 }
+
+   function void defrag() {
+    var int curr, next, currSize, nextSize, nextNext, mergedSize;
+     let curr = head;
+
+     while(curr) {  
+        let next = Memory.peek(curr);
+        let currSize = Memory.peek(curr + 1);
+        if((curr + currSize) = next) {
+
+            let nextSize = Memory.peek(next + 1);
+            let nextNext = Memory.peek(next);
+            let mergedSize = nextSize + currSize;
+            do Memory.poke(curr, nextNext);
+            do Memory.poke(curr + 1, mergedSize);
+
+            
+        }
+        if (~((curr + currSize) = next)){ // only move up if we didn't merge 
+        let curr = next;
+
+        }
+   
+    
+     }
+     return;
+    }
 }

@@ -1,0 +1,251 @@
+function Screen.init 3
+    push constant 16
+    pop local 2
+    push constant 1
+    pop local 1
+    push constant 16384
+    pop static 0
+    push constant 16
+    call Array.new 1
+    pop static 1
+    push constant 0
+    pop local 0
+label Screen_0
+    push local 0
+    push constant 16
+    lt
+    not
+    if-goto Screen_1
+    push local 0
+    push static 1
+    add
+    push local 1
+    pop temp 0
+    pop pointer 1
+    push temp 0
+    pop that 0
+    push local 1
+    push local 1
+    add
+    pop local 1
+    push local 0
+    push constant 1
+    add
+    pop local 0
+    goto Screen_0
+label Screen_1
+    push constant 0
+    return
+function Screen.clearScreen 0
+    push constant 0
+    call Screen.setColor 1
+    pop temp 0
+    push constant 0
+    push constant 0
+    push constant 511
+    push constant 255
+    call Screen.drawRectangle 4
+    pop temp 0
+    push constant 0
+    return
+function Screen.setColor 0
+    push argument 0
+    not
+    if-goto Screen_3
+    push constant 1
+    neg
+    pop static 2
+    push constant 0
+    return
+    goto Screen_2
+label Screen_3
+label Screen_2
+    push constant 0
+    pop static 2
+    push constant 0
+    return
+function Screen.drawPixel 5
+    push constant 32
+    push argument 1
+    call Math.multiply 2
+    push argument 0
+    push constant 16
+    call Math.divide 2
+    add
+    pop local 2
+    push local 2
+    call Memory.peek 1
+    pop local 3
+    push argument 0
+    push constant 16
+    push argument 0
+    push constant 16
+    call Math.divide 2
+    call Math.multiply 2
+    sub
+    pop local 0
+    push constant 15
+    push local 0
+    sub
+    pop local 4
+    push static 2
+    not
+    if-goto Screen_5
+    push local 3
+    push local 4
+    push static 1
+    add
+    pop pointer 1
+    push that 0
+    or
+    pop local 3
+    push local 2
+    push local 3
+    call Memory.poke 2
+    pop temp 0
+    push constant 0
+    return
+    goto Screen_4
+label Screen_5
+label Screen_4
+    push local 3
+    push local 4
+    push static 1
+    add
+    pop pointer 1
+    push that 0
+    not
+    and
+    pop local 3
+    push local 2
+    push local 3
+    call Memory.poke 2
+    pop temp 0
+    push constant 0
+    return
+function Screen.drawLine 4
+    push constant 0
+    pop local 2
+    push constant 0
+    pop local 3
+    push argument 2
+    push argument 0
+    sub
+    pop local 0
+    push argument 3
+    push argument 1
+    sub
+    pop local 1
+label Screen_6
+    push local 2
+    push local 0
+    gt
+    push local 3
+    push local 1
+    gt
+    or
+    not
+    not
+    if-goto Screen_7
+    push argument 0
+    push local 2
+    add
+    push argument 1
+    push local 3
+    add
+    call Screen.drawPixel 2
+    pop temp 0
+    push local 2
+    push local 1
+    call Math.multiply 2
+    push local 3
+    push local 0
+    call Math.multiply 2
+    lt
+    not
+    if-goto Screen_9
+    push local 2
+    push constant 1
+    add
+    pop local 2
+    goto Screen_8
+label Screen_9
+    push local 3
+    push constant 1
+    add
+    pop local 3
+label Screen_8
+    goto Screen_6
+label Screen_7
+    push constant 0
+    return
+function Screen.drawRectangle 1
+    push argument 1
+    pop local 0
+label Screen_10
+    push local 0
+    push argument 3
+    gt
+    not
+    not
+    if-goto Screen_11
+    push argument 0
+    push local 0
+    push argument 2
+    push local 0
+    call Screen.drawLine 4
+    pop temp 0
+    push local 0
+    push constant 1
+    add
+    pop local 0
+    goto Screen_10
+label Screen_11
+    push constant 0
+    return
+function Screen.drawCircle 4
+    push argument 2
+    push argument 2
+    call Math.multiply 2
+    pop local 1
+    push argument 2
+    neg
+    pop local 0
+label Screen_12
+    push local 0
+    push argument 2
+    gt
+    not
+    not
+    if-goto Screen_13
+    push local 0
+    push local 0
+    call Math.multiply 2
+    pop local 2
+    push local 1
+    push local 2
+    sub
+    call Math.sqrt 1
+    pop local 3
+    push argument 0
+    push local 3
+    sub
+    push argument 1
+    push local 0
+    add
+    push argument 0
+    push local 3
+    add
+    push argument 1
+    push local 0
+    add
+    call Screen.drawLine 4
+    pop temp 0
+    push local 0
+    push constant 1
+    add
+    pop local 0
+    goto Screen_12
+label Screen_13
+    push constant 0
+    return

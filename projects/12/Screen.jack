@@ -8,34 +8,119 @@
  * the screen is indexed (0,0).
  */
 class Screen {
+    static Array screen, powersOfTwo;
 
+    static int color; // 1 is black, 0 is white
     /** Initializes the Screen. */
     function void init() {
+        var int counter, n,nBits;
+        let nBits = 16;
+        let n = 1;
+        let screen = 16384; 
+        let powersOfTwo = Array.new(16);
+        let counter = 0;
+        while (counter < 16) {
+            let powersOfTwo[counter] = n;
+            let n = n + n;
+            let counter = counter + 1;
+        }
+        return;
     }
 
     /** Erases the entire screen. */
     function void clearScreen() {
+        do Screen.setColor(false);
+    do Screen.drawRectangle(0, 0, 511, 255);
+    return;
     }
 
     /** Sets the current color, to be used for all subsequent drawXXX commands.
      *  Black is represented by true, white by false. */
+
     function void setColor(boolean b) {
+        if(b){
+            let color = -1;
+            return;
+        }
+        let color = 0;
+        return;
     }
 
     /** Draws the (x,y) pixel, using the current color. */
     function void drawPixel(int x, int y) {
+        var int bitInWord, word, wordIndex, value, reversedIndex;
+        let wordIndex = screen + (32 * y) + (x / 16);  
+        let value = Memory.peek(wordIndex);
+      
+
+        let bitInWord = x - (16 * (x/16)); // this returns x mod 16 so its the 5th location in the word e.g 
+
+       let reversedIndex = 15 - bitInWord; // memory is read left to right but we need it r to left;
+       if(color) {
+        let value = value | powersOfTwo[reversedIndex]; // 2^(16-bitInWord) // keep everything and add the 1 at pos bitInWord
+        do Memory.poke(wordIndex, value); // done if color == 1
+        return; 
+       }
+    // if color == 0, then we want a white pixel and we are here
+        let value = value & ~(powersOfTwo[reversedIndex]);
+        do Memory.poke(wordIndex, value); // done if color == 0
+        return; 
+
+
     }
+
 
     /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
     function void drawLine(int x1, int y1, int x2, int y2) {
-    }
+        var int dx, dy, a, b;
+        // always assumed dx,dy > 0; // can upgrade later
+        
+     let a = 0;
+     let b = 0;
+     let dx = x2 - x1;
+     let dy = y2 - y1;
+
+    
+    while(~((a > dx) | (b > dy))) { // a less or equal to dx
+        do Screen.drawPixel(x1 + a, y1 + b);
+        if((a * dy) < (b * dx)) {
+            let a = a + 1;
+        } else {
+            let b = b + 1;
+        }
+    }   
+    return;
+}
 
     /** Draws a filled rectangle whose top left corner is (x1, y1)
      *  and bottom right corner is (x2,y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
+            var int top;
+            let top = y1;  // starts at the top
+
+
+
+       while( ~(top > y2) ) { 
+        do Screen.drawLine(x1, top, x2, top ); // x stays static, we draw straight lines
+        let top = top + 1;
+       }
+    return;
+
     }
 
     /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
     function void drawCircle(int x, int y, int r) {
+        var int dy, rSquared, dySquared, dx;
+        let rSquared = r*r;
+        let dy = -r; // start at top, then draw lines until y - r;
+            while (~(dy > r))   {
+                let dySquared = dy*dy;
+                let dx = Math.sqrt(rSquared - dySquared);
+                do Screen.drawLine(x - dx, y + dy, x + dx, y + dy);
+                let dy = dy + 1; // moving down
+            }
+            return;
     }
+
+    
 }
