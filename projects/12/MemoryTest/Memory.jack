@@ -1,0 +1,126 @@
+class Memory {
+
+ static Array ram;
+ static int head, heap;
+
+    function void init() {
+        var int heapSize;
+        var int pointer;
+
+    let ram = 0;
+    let heap = 2048;
+    let head = heap;
+    let heapSize = 14336; // heap segment is: 2048-16383
+  
+    do Memory.poke(head, 0); // we go to addr[2048] and we assign it to 2048 no next pointer points to iteself
+    do Memory.poke(head + 1, heapSize); // addr[2049] is assigned to segmentSize;
+
+    return;
+
+    }
+
+    /** Returns the RAM value at the given address. */
+    function int peek(int address) {
+        var int value;
+        let value = ram[address];
+        return value;
+    }
+
+    /** Sets the RAM value at the given address to the given value. */
+    function void poke(int address, int value) {
+        let ram[address] = value;
+        return;
+
+    }
+
+    /** Finds an available RAM block of the given size and returns
+     *  a reference to its base address. */
+    
+    
+   // function void defrag() {
+     //   merge small memory segments into one (call every once in a while);
+     // walk list, check size, merge them if size <= 3
+    //}
+
+    /** De-allocates the given object (cast as an array) by making
+     *  it available for future allocations. */
+    function void deAlloc(Array o) {  
+       var int curr, objectNextPointer, objectSize, newNext, segmentAddress, nextPointer, prev;
+       
+
+        let objectSize = Memory.peek(o - 1); 
+        let objectNextPointer = Memory.peek(o - 2);
+        let curr = head;
+        let segmentAddress = o - 2; 
+        let prev = 0;
+        // not keeping track of prev to merge linked list
+        while (curr) {
+            let nextPointer = Memory.peek(curr);
+        if (curr > segmentAddress) { // and curr.next!== 0 otherwise infinite loop
+            // put o before curr
+            if (prev = 0) {
+                // if prev is 0
+                let head = segmentAddress;
+                do Memory.poke(head, curr); // if no previous we make the deallocated object the head
+                return;
+            }
+            do Memory.poke(prev, segmentAddress); // prev points to old obj address since itsin middle
+            let newNext = curr;  // newNext = pointer ahead of deallocated obj
+            let curr = segmentAddress; // curr is deallocated obj
+            do Memory.poke(curr, newNext); // now our old object points to prevHead
+            do Memory.poke(curr + 1, objectSize + 2);
+            return;
+        }
+         let prev = curr; // prev is one before curr
+        let curr = nextPointer; 
+
+}
+return;
+}
+
+
+function Array alloc(int size) {
+    var int curr, neededSize, next, segmentSize, addrToReturn, remainingHeap;
+        let curr = head; // addr_2048(at first)
+        let neededSize = size + 2;
+
+
+       
+
+    while( (curr) & ((curr + neededSize) < 16385)) {
+            let segmentSize = Memory.peek(curr + 1);
+            let next = Memory.peek(curr); 
+
+                if (~(neededSize > segmentSize)) {
+                let remainingHeap = segmentSize - neededSize; // new size of remaining segment
+                let addrToReturn = curr + 2;
+                do Memory.poke(curr + 1, size); // put obj size theres
+                do Memory.poke(curr, 0);// => no need to point at anything anymore its taken // this address now isnt really a pointer since its part of an object, it doesnt have a meaningful basis // remember when dealloc that this field means nothing
+                
+                
+                if (remainingHeap > 3) {
+                    // if we have a meaningful segment left, we adjust head and return
+                let head = curr + neededSize; // we have taken memory for the next object and now our head sits where the object ends
+                do Memory.poke(head, next); // our new head points at the previous heads' next
+                do Memory.poke(head + 1, remainingHeap); // segment size adjusted ( Oldsize - newobjectsize)
+                return addrToReturn; 
+                
+                }
+                 // if we are here then the remanining heap is too small for new objects( size + 2 fields housework), we just do head = head.next
+                    let head = next;
+                    return addrToReturn;
+                
+            }
+            if((next)){
+            let curr = next; // if next isnt 0 and we havent found something, we walk the list
+            }
+     
+      
+
+        }
+
+return 0; // failed
+
+
+}
+}

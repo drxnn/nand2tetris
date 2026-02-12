@@ -1,16 +1,7 @@
-// This file is part of www.nand2tetris.org
-// and the book "The Elements of Computing Systems"
-// by Nisan and Schocken, MIT Press.
-/**
- *  A library of commonly used mathematical functions.
- *  All functions runs in O(n), where n is the number of bits used
- *  for representing a two's complement integer value (16 in the Hack computer). 
- *  Note: Jack compilers implement multiplication and division
- *  using calls to OS functions in this class.
- */
+
 class Math {
 
-    static Array powersOfTwo; // Stores 2^0, 2^1, 2^2,..., 2^(n-1)
+    static Array powersOfTwo; 
     static int nBits;
 
 
@@ -44,7 +35,8 @@ class Math {
     function int multiply(int x, int y) {
         // what if one is negative? we can check flip it, multiply, then at the end we unflip.
         var boolean xNeg, yNeg;
-        if (x<0) {
+        var int sum, counter, shiftedX;
+          if (x<0) {
             let xNeg = -1;
             let x = Math.abs(x);
 
@@ -59,19 +51,18 @@ class Math {
             let yNeg = 0;
             // basically if both were negative, now they are both positive so no need for anything at the end.
         }
-        var int sum, counter, shiftedX;
          let sum = 0;
          let shiftedX = x; 
          let counter = 0;
 
         while (counter < 16) {
-            if (bit(y, counter)){
+            if (Math.bit(y, counter)){
                 let sum = sum + shiftedX;
             }
              let shiftedX = shiftedX + shiftedX;
              let counter = counter + 1;
         }
-
+        
         if (xNeg | yNeg) {
             let sum = ~(sum) + 1; // revert back to negative
         }
@@ -90,7 +81,7 @@ class Math {
         return 0;
     }
         let yParam = y + y;
-        let q = divide(x, yParam); 
+        let q = Math.divide(x, yParam); 
             if((x - 2 * q * y) < y) {
         return 2 * q;
     }

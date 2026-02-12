@@ -1,0 +1,213 @@
+function Memory.init 2
+    push constant 0
+    pop static 0
+    push constant 2048
+    pop static 2
+    push static 2
+    pop static 1
+    push constant 14336
+    pop local 0
+    push static 1
+    push constant 0
+    call Memory.poke 2
+    pop temp 0
+    push static 1
+    push constant 1
+    add
+    push local 0
+    call Memory.poke 2
+    pop temp 0
+    push constant 0
+    return
+function Memory.peek 1
+    push argument 0
+    push static 0
+    add
+    pop pointer 1
+    push that 0
+    pop local 0
+    push local 0
+    return
+function Memory.poke 0
+    push argument 0
+    push static 0
+    add
+    push argument 1
+    pop temp 0
+    pop pointer 1
+    push temp 0
+    pop that 0
+    push constant 0
+    return
+function Memory.deAlloc 7
+    push argument 0
+    push constant 1
+    sub
+    call Memory.peek 1
+    pop local 2
+    push argument 0
+    push constant 2
+    sub
+    call Memory.peek 1
+    pop local 1
+    push static 1
+    pop local 0
+    push argument 0
+    push constant 2
+    sub
+    pop local 4
+    push constant 0
+    pop local 6
+label Memory_0
+    push local 0
+    not
+    if-goto Memory_1
+    push local 0
+    call Memory.peek 1
+    pop local 5
+    push local 0
+    push local 4
+    gt
+    not
+    if-goto Memory_3
+    push local 6
+    push constant 0
+    eq
+    not
+    if-goto Memory_5
+    push local 4
+    pop static 1
+    push static 1
+    push local 0
+    call Memory.poke 2
+    pop temp 0
+    push constant 0
+    return
+    goto Memory_4
+label Memory_5
+label Memory_4
+    push local 6
+    push local 4
+    call Memory.poke 2
+    pop temp 0
+    push local 0
+    pop local 3
+    push local 4
+    pop local 0
+    push local 0
+    push local 3
+    call Memory.poke 2
+    pop temp 0
+    push local 0
+    push constant 1
+    add
+    push local 2
+    push constant 2
+    add
+    call Memory.poke 2
+    pop temp 0
+    push constant 0
+    return
+    goto Memory_2
+label Memory_3
+label Memory_2
+    push local 0
+    pop local 6
+    push local 5
+    pop local 0
+    goto Memory_0
+label Memory_1
+    push constant 0
+    return
+function Memory.alloc 6
+    push static 1
+    pop local 0
+    push argument 0
+    push constant 2
+    add
+    pop local 1
+label Memory_6
+    push local 0
+    push local 0
+    push local 1
+    add
+    push constant 16385
+    lt
+    and
+    not
+    if-goto Memory_7
+    push local 0
+    push constant 1
+    add
+    call Memory.peek 1
+    pop local 3
+    push local 0
+    call Memory.peek 1
+    pop local 2
+    push local 1
+    push local 3
+    gt
+    not
+    not
+    if-goto Memory_9
+    push local 3
+    push local 1
+    sub
+    pop local 5
+    push local 0
+    push constant 2
+    add
+    pop local 4
+    push local 0
+    push constant 1
+    add
+    push argument 0
+    call Memory.poke 2
+    pop temp 0
+    push local 0
+    push constant 0
+    call Memory.poke 2
+    pop temp 0
+    push local 5
+    push constant 3
+    gt
+    not
+    if-goto Memory_11
+    push local 0
+    push local 1
+    add
+    pop static 1
+    push static 1
+    push local 2
+    call Memory.poke 2
+    pop temp 0
+    push static 1
+    push constant 1
+    add
+    push local 5
+    call Memory.poke 2
+    pop temp 0
+    push local 4
+    return
+    goto Memory_10
+label Memory_11
+label Memory_10
+    push local 2
+    pop static 1
+    push local 4
+    return
+    goto Memory_8
+label Memory_9
+label Memory_8
+    push local 2
+    not
+    if-goto Memory_13
+    push local 2
+    pop local 0
+    goto Memory_12
+label Memory_13
+label Memory_12
+    goto Memory_6
+label Memory_7
+    push constant 0
+    return
