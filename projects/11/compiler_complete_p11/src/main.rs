@@ -2,7 +2,6 @@
 use regex::Regex;
 
 use std::ffi::OsStr;
-use std::fmt::format;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Write};
 
@@ -14,15 +13,17 @@ fn main() -> io::Result<()> {
     let mut args = env::args();
     args.next();
 
-    // if filename -> run compile_engine
-    // if folder -> run compilation_engine per jack file and output fileName.vm
     let input_name = args
         .next()
         .expect("Please provide a file or folder as an argument");
 
     let p = Path::new(&input_name);
+    if Path::new("./output").is_dir() {
+        fs::remove_dir_all("./output")?;
+    }
 
     if p.is_dir() {
+        // add parallel compilation ?
         for entry in std::fs::read_dir(&input_name)? {
             let entry = entry?;
             if let Some(ext) = entry.path().extension() {
@@ -32,19 +33,7 @@ fn main() -> io::Result<()> {
             }
         }
     } else {
-        compile(p.to_path_buf())?; // single f
-    }
-    let input_path = PathBuf::from(input_name.clone());
-    let buffer = fs::read_to_string(input_name)?;
-    if input_path.is_file() {
-        let mut jack_t = jack_tokenizer::new(&buffer);
-
-        while jack_t.has_more_tokens() {
-            jack_t.advance();
-            jack_t.write_token_file();
-        }
-
-        // currently only does 1 file
+        compile(p.to_path_buf())?;
     }
 
     Ok(())
@@ -59,7 +48,8 @@ fn compile(f_path: PathBuf) -> io::Result<()> {
             jack_t.advance();
             jack_t.write_token_file();
         }
-        let vm_output_file: &OsStr = f_path.file_stem().unwrap(); // add .vm to it
+        let vm_output_file: &OsStr = f_path.file_stem().unwrap();
+
         fs::create_dir_all("./output")?;
         let final_path = format!("./output/{}.vm", vm_output_file.to_str().unwrap());
         let path = Path::new(&final_path);
@@ -74,22 +64,22 @@ fn compile(f_path: PathBuf) -> io::Result<()> {
 }
 
 #[derive(PartialEq, Clone, Debug)]
-enum TOKEN_TYPE {
+enum TokenType {
     KEYWORD,
     SYMBOL,
     IDENTIFIER,
-    INT_CONST,
-    STRING_CONST,
+    IntConst,
+    StringConst,
 }
 
-impl TOKEN_TYPE {
+impl TokenType {
     fn as_str(&self) -> &str {
         match self {
-            TOKEN_TYPE::KEYWORD => "keyword",
-            TOKEN_TYPE::SYMBOL => "symbol",
-            TOKEN_TYPE::IDENTIFIER => "identifier",
-            TOKEN_TYPE::INT_CONST => "integerConstant",
-            TOKEN_TYPE::STRING_CONST => "stringConstant",
+            TokenType::KEYWORD => "keyword",
+            TokenType::SYMBOL => "symbol",
+            TokenType::IDENTIFIER => "identifier",
+            TokenType::IntConst => "integerConstant",
+            TokenType::StringConst => "stringConstant",
         }
     }
 }
@@ -97,7 +87,7 @@ impl TOKEN_TYPE {
 #[derive(Clone)]
 struct Token {
     value: String,
-    kind: TOKEN_TYPE,
+    kind: TokenType,
 }
 
 // enum Identifier_Type{
@@ -107,28 +97,28 @@ struct Token {
 struct IdentifierEntry {
     name: String,
     type_name: String,
-    kind: Identifier_Kind,
+    kind: IdentifierKind,
     index: usize,
 }
 
-enum Identifier_Kind {
+enum IdentifierKind {
     STATIC, // scope class
     FIELD,  // scope class
     ARG,    // scope subroutine
     VAR,    // scope subroutine
 }
 
-impl Identifier_Kind {
+impl IdentifierKind {
     fn kind_to_segment(&self) -> &'static str {
         match self {
-            Identifier_Kind::STATIC => "static",
-            Identifier_Kind::FIELD => "this",
-            Identifier_Kind::ARG => "argument",
-            Identifier_Kind::VAR => "local",
+            IdentifierKind::STATIC => "static",
+            IdentifierKind::FIELD => "this",
+            IdentifierKind::ARG => "argument",
+            IdentifierKind::VAR => "local",
         }
     }
 }
-struct symbol_table {
+struct SymbolTable {
     class_scope: Vec<IdentifierEntry>, // name, type, kind/segment, index
     subroutine_scope: Vec<IdentifierEntry>,
     static_index: usize,
@@ -227,7 +217,7 @@ enum SEGMENTS {
     ARG,
     LOCAL,
 }
-impl symbol_table {
+impl SymbolTable {
     fn new() -> Self {
         Self {
             class_scope: Vec::new(),
@@ -248,46 +238,46 @@ impl symbol_table {
         // Defines a new identifier of a given name, type and kind and assigns it a running index. STATIC and FIELD identifiers
         // have a class scope, while ARG and VAR identifiers have a subroutine scope.
         let index = self.var_count(&kind);
-        let identifier_kind = match kind {
-            "static" => Identifier_Kind::STATIC,
-            "field" => Identifier_Kind::FIELD,
-            "var" => Identifier_Kind::VAR,
-            "argument" => Identifier_Kind::ARG,
+        let IdentifierKind = match kind {
+            "static" => IdentifierKind::STATIC,
+            "field" => IdentifierKind::FIELD,
+            "var" => IdentifierKind::VAR,
+            "argument" => IdentifierKind::ARG,
             _ => panic!("Invalid identifier kind: {}", kind),
         };
-        match identifier_kind {
-            Identifier_Kind::ARG => {
+        match IdentifierKind {
+            IdentifierKind::ARG => {
                 self.subroutine_scope.push(IdentifierEntry {
                     name: name.to_string(),
                     type_name: ty.to_string(),
-                    kind: identifier_kind,
+                    kind: IdentifierKind,
                     index,
                 });
                 self.arg_index += 1;
             }
-            Identifier_Kind::VAR => {
+            IdentifierKind::VAR => {
                 self.subroutine_scope.push(IdentifierEntry {
                     name: name.to_string(),
                     type_name: ty.to_string(),
-                    kind: identifier_kind,
+                    kind: IdentifierKind,
                     index,
                 });
                 self.var_index += 1
             }
-            Identifier_Kind::STATIC => {
+            IdentifierKind::STATIC => {
                 self.class_scope.push(IdentifierEntry {
                     name: name.to_string(),
                     type_name: ty.to_string(),
-                    kind: identifier_kind,
+                    kind: IdentifierKind,
                     index,
                 });
                 self.static_index += 1
             }
-            Identifier_Kind::FIELD => {
+            IdentifierKind::FIELD => {
                 self.class_scope.push(IdentifierEntry {
                     name: name.to_string(),
                     type_name: ty.to_string(),
-                    kind: identifier_kind,
+                    kind: IdentifierKind,
                     index,
                 });
                 self.field_index += 1
@@ -296,22 +286,21 @@ impl symbol_table {
     }
 
     fn var_count(&self, kind: &str) -> usize {
-        // Returns the number of variables of the given kind already defined in the current scope.
-        let identifier_kind = match kind {
-            "static" => Identifier_Kind::STATIC,
-            "field" => Identifier_Kind::FIELD,
-            "var" => Identifier_Kind::VAR,
-            "argument" => Identifier_Kind::ARG,
+        let IdentifierKind = match kind {
+            "static" => IdentifierKind::STATIC,
+            "field" => IdentifierKind::FIELD,
+            "var" => IdentifierKind::VAR,
+            "argument" => IdentifierKind::ARG,
             _ => panic!("Invalid identifier kind: {}", kind),
         };
-        match identifier_kind {
-            Identifier_Kind::ARG => self.arg_index,
-            Identifier_Kind::VAR => self.var_index,
-            Identifier_Kind::FIELD => self.field_index,
-            Identifier_Kind::STATIC => self.static_index,
+        match IdentifierKind {
+            IdentifierKind::ARG => self.arg_index,
+            IdentifierKind::VAR => self.var_index,
+            IdentifierKind::FIELD => self.field_index,
+            IdentifierKind::STATIC => self.static_index,
         }
     }
-    fn kind_of(&self, name: &str) -> Option<&Identifier_Kind> {
+    fn kind_of(&self, name: &str) -> Option<&IdentifierKind> {
         // Returns the kind of the named identifier in the current scope. If the identifier is unknown in the current scope, returns NONE.
         // check if its in subroutine first
         self.subroutine_scope
@@ -378,25 +367,23 @@ impl jack_tokenizer {
             pos: 0,
             tokens_file: Some(file_tokens),
         };
+        // For future reference:
+        // regex below isnt really robust since if we had something like a/*comment*/b we would get ab after sanitizing
+        // but its okay since a b isnt valid Jack code so it works for all cases of this project, will keep it as is.
         let re = Regex::new(r#""[^"]*"|\w+|[^\w\s]"#).unwrap();
+        let comments_re = Regex::new(r#"(?s)\/\*.*?\*\/|\/{2,}[^\n]*"#).unwrap();
+        let sanitized_file: String = comments_re.split(file).collect();
 
-        for line in file.lines() {
-            // need to add sanitization for /* block level comments */
-            let sanitized_line = line.split("//").next().unwrap_or("").trim();
+        re.find_iter(&sanitized_file).for_each(|x| {
+            let token = x.as_str().to_string();
 
-            if !sanitized_line.is_empty() {
-                re.find_iter(sanitized_line).for_each(|x| {
-                    let token = x.as_str().to_string();
-
-                    j_tokenizer.current_token = Some(token.clone());
-                    let token_kind = j_tokenizer.token_type();
-                    j_tokenizer.tokens.push(Token {
-                        value: token,
-                        kind: token_kind,
-                    });
-                });
-            }
-        }
+            j_tokenizer.current_token = Some(token.clone());
+            let token_kind = j_tokenizer.token_type();
+            j_tokenizer.tokens.push(Token {
+                value: token,
+                kind: token_kind,
+            });
+        });
 
         j_tokenizer
     }
@@ -427,7 +414,7 @@ impl jack_tokenizer {
         }
     }
 
-    fn token_type(&self) -> TOKEN_TYPE {
+    fn token_type(&self) -> TokenType {
         const KEYWORDS: [&str; 21] = [
             "class",
             "constructor",
@@ -457,12 +444,12 @@ impl jack_tokenizer {
         ];
 
         match &self.current_token {
-            Some(x) if KEYWORDS.contains(&x.as_ref()) => TOKEN_TYPE::KEYWORD,
-            Some(x) if SYMBOLS.contains(&x.as_ref()) => TOKEN_TYPE::SYMBOL,
+            Some(x) if KEYWORDS.contains(&x.as_ref()) => TokenType::KEYWORD,
+            Some(x) if SYMBOLS.contains(&x.as_ref()) => TokenType::SYMBOL,
             Some(x) if x.starts_with('"') && x.ends_with('"') && x.len() >= 2 => {
-                TOKEN_TYPE::STRING_CONST
+                TokenType::StringConst
             }
-            Some(x) if x.parse::<u32>().is_ok() => TOKEN_TYPE::INT_CONST,
+            Some(x) if x.parse::<u32>().is_ok() => TokenType::IntConst,
             Some(x)
                 if {
                     let mut chars = x.chars();
@@ -474,20 +461,20 @@ impl jack_tokenizer {
                     }
                 } =>
             {
-                TOKEN_TYPE::IDENTIFIER
+                TokenType::IDENTIFIER
             }
 
-            _ => TOKEN_TYPE::IDENTIFIER,
+            _ => TokenType::IDENTIFIER,
         }
     }
 
     fn token_type_as_str(&self) -> &str {
         match self.token_type() {
-            TOKEN_TYPE::IDENTIFIER => "identifier",
-            TOKEN_TYPE::KEYWORD => "keyword",
-            TOKEN_TYPE::STRING_CONST => "stringConstant",
-            TOKEN_TYPE::INT_CONST => "integerConstant",
-            TOKEN_TYPE::SYMBOL => "symbol",
+            TokenType::IDENTIFIER => "identifier",
+            TokenType::KEYWORD => "keyword",
+            TokenType::StringConst => "stringConstant",
+            TokenType::IntConst => "integerConstant",
+            TokenType::SYMBOL => "symbol",
         }
     }
 }
@@ -497,7 +484,7 @@ struct compilation_engine {
     tokens: Vec<Token>,
     pos: usize,
     indentation: usize,
-    symbol_table: symbol_table,
+    SymbolTable: SymbolTable,
 
     vm_writer: VM_Writer,
     label_index: usize,
@@ -513,12 +500,12 @@ impl compilation_engine {
             .open("output.xml")
             .unwrap();
 
-        let symbol_table = symbol_table::new();
-        println!("path is here {:?}", path);
-        let vm_writer = VM_Writer::new(path)?; // will fix later 
-        println!("path is passing vm writer {:?}", path);
+        let SymbolTable = SymbolTable::new();
+
+        let vm_writer = VM_Writer::new(path)?;
+
         let writer = Self {
-            symbol_table,
+            SymbolTable,
             file: Some(BufWriter::new(file)),
             tokens: tokens,
             pos: 0,
@@ -582,7 +569,7 @@ impl compilation_engine {
         })?;
 
         match tok.kind {
-            TOKEN_TYPE::KEYWORD => {
+            TokenType::KEYWORD => {
                 if tok.value == "int"
                     || tok.value == "char"
                     || tok.value == "boolean"
@@ -596,7 +583,7 @@ impl compilation_engine {
                     ))
                 }
             }
-            TOKEN_TYPE::IDENTIFIER => Ok(tok),
+            TokenType::IDENTIFIER => Ok(tok),
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("unexpected keyword {}; expected type", tok.value),
@@ -653,6 +640,7 @@ impl compilation_engine {
                 "<" => self.tokens[self.pos].value = "lt".to_string(),
                 "=" => self.tokens[self.pos].value = "eq".to_string(),
                 ">" => self.tokens[self.pos].value = "gt".to_string(),
+                "|" => self.tokens[self.pos].value = "or".to_string(),
                 "\"" => self.tokens[self.pos].value = "&quot;".to_string(),
                 "&" => self.tokens[self.pos].value = "and".to_string(),
                 "+" => self.tokens[self.pos].value = "add".to_string(),
@@ -716,7 +704,7 @@ impl compilation_engine {
                         break;
                     } else if t.value != "," {
                         // token is name
-                        self.symbol_table.define(&t.value, &var_type, &kind);
+                        self.SymbolTable.define(&t.value, &var_type, &kind);
                     }
                     self.write_token(&t.value, t.kind.as_str())?;
                 }
@@ -733,7 +721,7 @@ impl compilation_engine {
         Ok(())
     }
     fn compile_subroutine(&mut self, className: &str) -> io::Result<()> {
-        self.symbol_table.start_subroutine();
+        self.SymbolTable.start_subroutine();
         self.write_open_tag("subroutineDec")?;
         self.indentation += 2;
         let subroutine_kind = self.expect_kind("keyword")?;
@@ -745,7 +733,7 @@ impl compilation_engine {
 
         let f_name = self.expect_kind("identifier")?; // f_name 
         if subroutine_kind.value == "method" {
-            self.symbol_table.define("this", className, "argument");
+            self.SymbolTable.define("this", className, "argument");
         }
 
         self.write_token(&f_name.value, f_name.kind.as_str())?;
@@ -810,7 +798,7 @@ impl compilation_engine {
             // memory alloc allocates amount of vars so get num of fields for class:
 
             self.vm_writer
-                .write_push("constant", self.symbol_table.field_index)?;
+                .write_push("constant", self.SymbolTable.field_index)?;
             self.vm_writer.write_call("Memory.alloc", 1)?;
             self.vm_writer.write_pop("pointer", 0)?;
         } else if subroutine_kind.value == "method" {
@@ -839,7 +827,7 @@ impl compilation_engine {
         self.write_token(&t_token.value, t_token.kind.as_str())?;
         let n_token = self.expect_kind("identifier")?;
         self.write_token(&n_token.value, n_token.kind.as_str())?;
-        self.symbol_table
+        self.SymbolTable
             .define(&n_token.value, &t_token.value, "argument");
 
         Ok(())
@@ -863,8 +851,8 @@ impl compilation_engine {
                     // here its: varName , otherVarName , varName2 , lastVarName ;
                     match self.advance() {
                         Some(t) => {
-                            if t.kind == TOKEN_TYPE::IDENTIFIER {
-                                self.symbol_table.define(&t.value, t_type.as_str(), "var");
+                            if t.kind == TokenType::IDENTIFIER {
+                                self.SymbolTable.define(&t.value, t_type.as_str(), "var");
                                 n_vars += 1;
                             } else if t.value == ";" {
                                 self.write_token(&t.value, t.kind.as_str())?;
@@ -931,12 +919,12 @@ impl compilation_engine {
         var_to_look_for: &str,
     ) -> Result<&IdentifierEntry, std::io::Error> {
         let variable = self
-            .symbol_table
+            .SymbolTable
             .subroutine_scope
             .iter()
             .find(|entry| entry.name == var_to_look_for)
             .or_else(|| {
-                self.symbol_table
+                self.SymbolTable
                     .class_scope
                     .iter()
                     .find(|entry| entry.name == var_to_look_for)
@@ -1282,8 +1270,13 @@ impl compilation_engine {
                 }
                 "integerConstant" => {
                     self.write_token(&first_tok.value, first_tok.kind.as_str())?;
-                    let parsedIndex = first_tok.value.parse::<usize>().unwrap(); // will come back here
-                    self.vm_writer.write_push("constant", parsedIndex)?;
+                    let parsed_index = first_tok.value.parse::<usize>().map_err(|e| {
+                        io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            format!("Invalid integer constant: {}", first_tok.value),
+                        )
+                    })?;
+                    self.vm_writer.write_push("constant", parsed_index)?;
                 }
                 "stringConstant" => {
                     // ? handle
