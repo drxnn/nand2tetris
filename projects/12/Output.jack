@@ -75,7 +75,7 @@ class Output {
         do Output.create(64,30,51,51,59,59,59,27,3,30,0,0);  // @
         do Output.create(63,30,51,51,24,12,12,0,12,12,0,0);  // ?
 
-        do Output.create(65,48,120,204,204,252,204,204,204,0,0,0); // A 
+        do Output.create(65,24,24,60,102,102,126,102,102,102,0,0); // A 
         do Output.create(66,31,51,51,51,31,51,51,51,31,0,0); // B
         do Output.create(67,28,54,35,3,3,3,35,54,28,0,0);    // C
         do Output.create(68,15,27,51,51,51,51,51,27,15,0,0); // D
@@ -170,7 +170,7 @@ class Output {
     // Returns the character map (array of size 11) of the given character.
     // If the given character is invalid or non-printable, returns the
     // character map of a black square.
-    method Array getMap(char c) {
+    function Array getMap(char c) {
         if ((c < 32) | (c > 126)) {
             let c = 0;
         }
@@ -180,26 +180,48 @@ class Output {
     /** Moves the cursor to the j-th column of the i-th row,
      *  and erases the character displayed there. */
     function void moveCursor(int i, int j) {
-       
-        let cursorRow = i;
-        let cursorCol = j;
+        if ((i > 21) & (j > 63)) {let i = 0; let j = 0;} 
+        if (i > 22) { let i = 0; }
+        if (i < 0)  { let i = 0; }
+        if (j > 63) { let j = 0; }
+        if (j < 0)  { let j = 0; }
 
-        let cursor = 16384 + (i * 352) + (j / 2); // 352 skips a whole line; (0*352) = 0th line, (1*352) = first line etc, j = col.
-       
-      return;
-    }
+    let cursorRow = i;
+    let cursorCol = j;
+    let cursor = 16384 + (i * 352) + (j / 2);
+    
+return;
+    
+}
 
     /** Displays the given character at the cursor location,
      *  and advances the cursor one column forward. */
     function void printChar(char c) {
         var Array charM;
-        var int i;
+        var int i, parity, word, address, mask, currMemValue;
+        
 
-        let charM = getMap(c); // returns array of size 11 which holds the character bitmap;
-
+        let charM = Output.getMap(c); // returns array of size 11 which holds the character bitmap;
+        
         let i = 0;
+        let parity = cursorCol - (2 * (cursorCol / 2)); // 1 = odd, 0 even;
+        
+     
+
         while (i < 11) {
-            do Memory.poke(cursor + (i*32), charM[i]);
+            let word = charM[i];
+            let address = cursor + (i*32);
+            let currMemValue = Memory.peek(address);
+            if(parity = 1) {
+                // shift bits and keep the old 8 right bits;
+                let mask = currMemValue & 255; 
+                let word = word * 256; 
+                let word = word | mask;
+            } else {
+                let mask = currMemValue & ~255;      
+                let word = word | mask;
+            }
+            do Memory.poke(address, word);
             let i = i + 1;
         }
         do Output.moveCursor(cursorRow, cursorCol + 1); 
@@ -213,7 +235,6 @@ class Output {
 
         let size = s.length();
         let idx = 0;
-
         while (size > idx) {
             let ch = s.charAt(idx);
     
@@ -221,7 +242,7 @@ class Output {
             let idx = idx + 1;
         }
         
-return;
+    return;
     }
 
     /** Displays the given integer starting at the cursor location,
@@ -236,6 +257,8 @@ return;
 
        if (i = 0) {
         do Output.printChar(48);
+
+        do singularNums.dispose();
         return;
     }
     let neg = 0;
@@ -243,6 +266,7 @@ return;
     if (i < 0) {
         let neg = 1; // we have a negative number
          let i = -i; // make it positive 
+         do Output.printChar(45); 
     }
         let num = i;
         while (num > 0){
@@ -251,26 +275,19 @@ return;
         let num = num / 10;
         let counter = counter + 1;
         }
-        // in the 850 example, we now have an array of [0,5,8]
-        //                                       index: 0 1 2
+
     
-        if (neg) {
-            let singularNums[counter] = 45; // - representation
-            let counter = counter + 1;
-        }
+    
 
         while( counter > 0) {
             let counter = counter - 1;
             let digit = singularNums[counter];
             if (digit < 10) {
             do Output.printChar(digit + 48);
-            } else {
-                do Output.printChar(digit); // this is 45 === "-";
             }
-          
            
         }
-       
+       do singularNums.dispose();
         return;
 
 

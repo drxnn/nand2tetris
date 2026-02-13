@@ -488,15 +488,15 @@ function Output.initMap 1
     call Output.create 12
     pop temp 0
     push constant 65
-    push constant 48
-    push constant 120
-    push constant 204
-    push constant 204
-    push constant 252
-    push constant 204
-    push constant 204
-    push constant 204
-    push constant 0
+    push constant 24
+    push constant 24
+    push constant 60
+    push constant 102
+    push constant 102
+    push constant 126
+    push constant 102
+    push constant 102
+    push constant 102
     push constant 0
     push constant 0
     call Output.create 12
@@ -1461,28 +1461,82 @@ function Output.create 1
     return
 function Output.getMap 0
     push argument 0
-    pop pointer 0
-    push argument 1
     push constant 32
     lt
-    push argument 1
+    push argument 0
     push constant 126
     gt
     or
     not
     if-goto Output_1
     push constant 0
-    pop argument 1
+    pop argument 0
     goto Output_0
 label Output_1
 label Output_0
-    push argument 1
+    push argument 0
     push static 0
     add
     pop pointer 1
     push that 0
     return
 function Output.moveCursor 0
+    push argument 0
+    push constant 21
+    gt
+    push argument 1
+    push constant 63
+    gt
+    and
+    not
+    if-goto Output_3
+    push constant 0
+    pop argument 0
+    push constant 0
+    pop argument 1
+    goto Output_2
+label Output_3
+label Output_2
+    push argument 0
+    push constant 22
+    gt
+    not
+    if-goto Output_5
+    push constant 0
+    pop argument 0
+    goto Output_4
+label Output_5
+label Output_4
+    push argument 0
+    push constant 0
+    lt
+    not
+    if-goto Output_7
+    push constant 0
+    pop argument 0
+    goto Output_6
+label Output_7
+label Output_6
+    push argument 1
+    push constant 63
+    gt
+    not
+    if-goto Output_9
+    push constant 0
+    pop argument 1
+    goto Output_8
+label Output_9
+label Output_8
+    push argument 1
+    push constant 0
+    lt
+    not
+    if-goto Output_11
+    push constant 0
+    pop argument 1
+    goto Output_10
+label Output_11
+label Output_10
     push argument 0
     pop static 2
     push argument 1
@@ -1499,37 +1553,80 @@ function Output.moveCursor 0
     pop static 3
     push constant 0
     return
-function Output.printChar 2
-    push pointer 0
+function Output.printChar 7
     push argument 0
-    call Output.getMap 2
+    call Output.getMap 1
     pop local 0
     push constant 0
     pop local 1
-label Output_2
+    push static 1
+    push constant 2
+    push static 1
+    push constant 2
+    call Math.divide 2
+    call Math.multiply 2
+    sub
+    pop local 2
+label Output_12
     push local 1
     push constant 11
     lt
     not
-    if-goto Output_3
-    push static 3
-    push local 1
-    push constant 32
-    call Math.multiply 2
-    add
+    if-goto Output_13
     push local 1
     push local 0
     add
     pop pointer 1
     push that 0
+    pop local 3
+    push static 3
+    push local 1
+    push constant 32
+    call Math.multiply 2
+    add
+    pop local 4
+    push local 4
+    call Memory.peek 1
+    pop local 6
+    push local 2
+    push constant 1
+    eq
+    not
+    if-goto Output_15
+    push local 6
+    push constant 255
+    and
+    pop local 5
+    push local 3
+    push constant 256
+    call Math.multiply 2
+    pop local 3
+    push local 3
+    push local 5
+    or
+    pop local 3
+    goto Output_14
+label Output_15
+    push local 6
+    push constant 255
+    not
+    and
+    pop local 5
+    push local 3
+    push local 5
+    or
+    pop local 3
+label Output_14
+    push local 4
+    push local 3
     call Memory.poke 2
     pop temp 0
     push local 1
     push constant 1
     add
     pop local 1
-    goto Output_2
-label Output_3
+    goto Output_12
+label Output_13
     push static 2
     push static 1
     push constant 1
@@ -1544,12 +1641,12 @@ function Output.printString 3
     pop local 0
     push constant 0
     pop local 2
-label Output_4
+label Output_16
     push local 0
     push local 2
     gt
     not
-    if-goto Output_5
+    if-goto Output_17
     push argument 0
     push local 2
     call String.charAt 2
@@ -1561,8 +1658,8 @@ label Output_4
     push constant 1
     add
     pop local 2
-    goto Output_4
-label Output_5
+    goto Output_16
+label Output_17
     push constant 0
     return
 function Output.printInt 6
@@ -1575,38 +1672,44 @@ function Output.printInt 6
     push constant 0
     eq
     not
-    if-goto Output_7
+    if-goto Output_19
     push constant 48
     call Output.printChar 1
     pop temp 0
+    push local 5
+    call Array.dispose 1
+    pop temp 0
     push constant 0
     return
-    goto Output_6
-label Output_7
-label Output_6
+    goto Output_18
+label Output_19
+label Output_18
     push constant 0
     pop local 3
     push argument 0
     push constant 0
     lt
     not
-    if-goto Output_9
+    if-goto Output_21
     push constant 1
     pop local 3
     push argument 0
     neg
     pop argument 0
-    goto Output_8
-label Output_9
-label Output_8
+    push constant 45
+    call Output.printChar 1
+    pop temp 0
+    goto Output_20
+label Output_21
+label Output_20
     push argument 0
     pop local 1
-label Output_10
+label Output_22
     push local 1
     push constant 0
     gt
     not
-    if-goto Output_11
+    if-goto Output_23
     push local 1
     push constant 10
     push local 1
@@ -1631,32 +1734,14 @@ label Output_10
     push constant 1
     add
     pop local 2
-    goto Output_10
-label Output_11
-    push local 3
-    not
-    if-goto Output_13
-    push local 2
-    push local 5
-    add
-    push constant 45
-    pop temp 0
-    pop pointer 1
-    push temp 0
-    pop that 0
-    push local 2
-    push constant 1
-    add
-    pop local 2
-    goto Output_12
-label Output_13
-label Output_12
-label Output_14
+    goto Output_22
+label Output_23
+label Output_24
     push local 2
     push constant 0
     gt
     not
-    if-goto Output_15
+    if-goto Output_25
     push local 2
     push constant 1
     sub
@@ -1671,20 +1756,20 @@ label Output_14
     push constant 10
     lt
     not
-    if-goto Output_17
+    if-goto Output_27
     push local 4
     push constant 48
     add
     call Output.printChar 1
     pop temp 0
-    goto Output_16
-label Output_17
-    push local 4
-    call Output.printChar 1
+    goto Output_26
+label Output_27
+label Output_26
+    goto Output_24
+label Output_25
+    push local 5
+    call Array.dispose 1
     pop temp 0
-label Output_16
-    goto Output_14
-label Output_15
     push constant 0
     return
 function Output.println 0
@@ -1694,20 +1779,20 @@ function Output.println 0
     push constant 23
     lt
     not
-    if-goto Output_19
+    if-goto Output_29
     push static 2
     push constant 1
     add
     push constant 0
     call Output.moveCursor 2
     pop temp 0
-    goto Output_18
-label Output_19
+    goto Output_28
+label Output_29
     push constant 0
     push constant 0
     call Output.moveCursor 2
     pop temp 0
-label Output_18
+label Output_28
     push constant 0
     return
 function Output.backSpace 0
@@ -1715,15 +1800,15 @@ function Output.backSpace 0
     push constant 0
     gt
     not
-    if-goto Output_21
+    if-goto Output_31
     push static 2
     push static 1
     push constant 1
     sub
     call Output.moveCursor 2
     pop temp 0
-    goto Output_20
-label Output_21
-label Output_20
+    goto Output_30
+label Output_31
+label Output_30
     push constant 0
     return
