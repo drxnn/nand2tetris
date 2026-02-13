@@ -76,11 +76,12 @@ class Screen {
     /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
     function void drawLine(int x1, int y1, int x2, int y2) {
 
-        var int dx, dy, a, b, posDx, posDy, startX, startY, endX, endY;
+        var int dx, dy, a, b, posDx, posDy, startX, startY, endX, endY, adyMinusbdx;
    
         
      let a = 0;
      let b = 0;
+     let adyMinusbdx = 0;
      let dx = x2 - x1;
      let dy = y2 - y1;
 
@@ -110,10 +111,12 @@ class Screen {
     if ((dx > 0) & (dy > 0)){
         while(~((a > dx) | (b > dy))) { // a less or equal to dx
             do Screen.drawPixel(x1 + a, y1 + b);
-                if((a * dy) < (b * dx)) {
+               if(adyMinusbdx < 0) {
                 let a = a + 1;
+                let adyMinusbdx = adyMinusbdx + dy;
             } else {
                 let b = b + 1;
+                let adyMinusbdx = adyMinusbdx - dx;
         }
     }   
 }
@@ -124,10 +127,12 @@ class Screen {
         
             //do Screen.drawLine(280,90,345,35);  
             do Screen.drawPixel(x1 + a, y1 - b);
-            if((a * posDy) < (b * dx)) {
+            if(adyMinusbdx < 0) {
                 let a = a + 1;
+                let adyMinusbdx = adyMinusbdx + posDy;
             } else {
                 let b = b + 1;
+                let adyMinusbdx = adyMinusbdx - dx;
         }
     }
 }
@@ -137,10 +142,12 @@ class Screen {
          let posDx = -dx;
         while ( ~((a > posDx) | (b > posDy)) ) {
             do Screen.drawPixel(x1 - a, y1 - b);
-            if((a * posDy) < (b * posDx)) {
+          if(adyMinusbdx < 0) {
                 let a = a + 1;
+                let adyMinusbdx = adyMinusbdx + posDy;
             } else {
                 let b = b + 1;
+                let adyMinusbdx = adyMinusbdx - posDx;
         }
     }
 }
@@ -149,10 +156,12 @@ if ((dx < 0) & (dy > 0)) {
     let posDx = -dx;
     while ( ~((a > posDx) | (b > dy)) ) {
             do Screen.drawPixel(x1 - a, y1 + b);
-            if((a * dy) < (b * posDx)) {
+            if(adyMinusbdx < 0) {
                 let a = a + 1;
+                let adyMinusbdx = adyMinusbdx + dy;
             } else {
                 let b = b + 1;
+                let adyMinusbdx = adyMinusbdx - posDx;
         }
     }
 }
