@@ -123,50 +123,47 @@ return;
      *  text until a newline character is detected, echoes the text to the screen,
      *  and returns its integer value (until the first non-digit character in the
      *  entered text is detected). Also handles user backspaces. */
-    function int readInt(String message) {
-        var boolean submitted;
-        var int stringLen, currKey, pressed, released;
-        var String str;
+   function int readInt(String message) {
+    var boolean submitted;
+    var int stringLen, currKey, pressed, released;
+    var String str;
 
-        let submitted = 0;
-        let str = String.new(50); 
-        let stringLen = message.length();
-        do Output.printString(message);
-        let pressed = 0;
-               while(~(submitted)) { 
-                    while (~(pressed)) {
-                    let pressed = Keyboard.keyPressed();
+    let submitted = 0;
+    let str = String.new(50); 
+    let stringLen = message.length();
+    do Output.printString(message);
+    let pressed = 0;
+    while(~(submitted)) { 
+        while (~(pressed)) {
+            let pressed = Keyboard.keyPressed();
         }
-    
-            let currKey = pressed;
-            let released = 0;
-            while(~(released)) {
-                if (Keyboard.keyPressed() = 0) {
+
+        let currKey = pressed;
+        let released = 0;
+        while(~(released)) {
+            if (Keyboard.keyPressed() = 0) {
                 let released = true;
             }
         }
-        
-                if (currKey = 128) {
-                let submitted = -1; // user pressed newline
-                do Output.println();
-    } else {
-             if (currKey = 129) { 
-    if (str.length() > 0) { 
-        do str.eraseLastChar();
-        do Output.backSpace();
-    }
-} else {  
-    if ((currKey > 47) & (currKey < 58) | (currKey = 45)) { // either digits or -digits
-        do str.appendChar(currKey);
-        do Output.printChar(currKey); 
-    }
-
+    
+        if (currKey = 128) {
+            let submitted = -1; // user pressed newline
+            do Output.println();
+        } else {
+            if (currKey = 129) { 
+                if (str.length() > 0) { 
+                    do str.eraseLastChar();
+                    do Output.backSpace();
+                }
+            } else {  
+                if ((currKey > 47) & (currKey < 58) | (currKey = 45)) { /* either digits or -digits */
+                    do str.appendChar(currKey);
+                    do Output.printChar(currKey); 
+                }
             }
         }
         let pressed = 0;
     }
     return str.intValue();
-    }
 }
-
-
+}

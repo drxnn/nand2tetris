@@ -68,42 +68,39 @@ label Keyboard_7
     pop temp 0
     push local 0
     return
-function Keyboard.readLine 6
+function Keyboard.readLine 5
     push constant 100
     call String.new 1
+    pop local 3
+    push constant 0
     pop local 4
     push constant 0
-    pop local 5
-    push argument 0
-    call String.length 1
-    pop local 0
-    push constant 0
-    pop local 2
+    pop local 1
     push argument 0
     call Output.printString 1
     pop temp 0
 label Keyboard_10
-    push local 5
+    push local 4
     not
     not
     if-goto Keyboard_11
     push constant 0
-    pop local 2
+    pop local 1
 label Keyboard_12
-    push local 2
+    push local 1
     not
     not
     if-goto Keyboard_13
     call Keyboard.keyPressed 0
-    pop local 2
+    pop local 1
     goto Keyboard_12
 label Keyboard_13
-    push local 2
-    pop local 1
+    push local 1
+    pop local 0
     push constant 0
-    pop local 3
+    pop local 2
 label Keyboard_14
-    push local 3
+    push local 2
     not
     not
     if-goto Keyboard_15
@@ -114,34 +111,34 @@ label Keyboard_14
     if-goto Keyboard_17
     push constant 1
     neg
-    pop local 3
+    pop local 2
     goto Keyboard_16
 label Keyboard_17
 label Keyboard_16
     goto Keyboard_14
 label Keyboard_15
-    push local 1
+    push local 0
     push constant 128
     eq
     not
     if-goto Keyboard_19
     push constant 1
     neg
-    pop local 5
+    pop local 4
     goto Keyboard_18
 label Keyboard_19
-    push local 1
+    push local 0
     push constant 129
     eq
     not
     if-goto Keyboard_21
-    push local 4
+    push local 3
     call String.length 1
     push constant 0
     gt
     not
     if-goto Keyboard_23
-    push local 4
+    push local 3
     call String.eraseLastChar 1
     pop temp 0
     call Output.backSpace 0
@@ -151,11 +148,11 @@ label Keyboard_23
 label Keyboard_22
     goto Keyboard_20
 label Keyboard_21
-    push local 4
-    push local 1
+    push local 3
+    push local 0
     call String.appendChar 2
     pop temp 0
-    push local 1
+    push local 0
     call Output.printChar 1
     pop temp 0
 label Keyboard_20
@@ -164,7 +161,7 @@ label Keyboard_18
 label Keyboard_11
     call Output.println 0
     pop temp 0
-    push local 4
+    push local 3
     return
 function Keyboard.readInt 6
     push constant 0
