@@ -5,9 +5,12 @@
  * A library for handling user input from the keyboard.
  */
 class Keyboard {
+    static int char;
+    static boolean keyPressed;
 
     /** Initializes the keyboard. */
     function void init() {
+
     } 
 
     /**
@@ -31,6 +34,16 @@ class Keyboard {
      * F1 - F12 = 141 - 152
      */
     function char keyPressed() {
+
+            let char = Memory.peek(24576);
+            if (char > 0) {
+                return char;
+            } else {
+                return 0;
+                }
+
+
+
     }
 
     /**	Waits until a key is pressed on the keyboard and released,

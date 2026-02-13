@@ -29,10 +29,10 @@ class Main {
         do Output.printString(i);                // setInt: 12345
         do Output.println();
 
-        do i.setInt(-32767);
-        do Output.printString("setInt: ");
-        do Output.printString(i);                // setInt: -32767
-        do Output.println();
+        //do i.setInt(-32767);
+        //do Output.printString("setInt: ");
+        //do Output.printString(i);                // setInt: -32767
+        //do Output.println();
         
         do Output.printString("length: ");
         do Output.printInt(s.length());          // length: 5

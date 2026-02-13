@@ -199,6 +199,18 @@ return;
     function void printChar(char c) {
         var Array charM;
         var int i, parity, word, address, mask, currMemValue;
+
+        if (c = String.newLine()) {
+        do Output.moveCursor(cursorRow + 1, 0);
+        return;
+    }
+    
+    if (c = String.backSpace()) {
+        if (cursorCol > 0) {
+            do Output.moveCursor(cursorRow, cursorCol - 1);
+        }
+        return;
+    }
         
 
         let charM = Output.getMap(c); // returns array of size 11 which holds the character bitmap;
