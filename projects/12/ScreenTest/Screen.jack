@@ -16,6 +16,7 @@ class Screen {
         var int counter, n,nBits;
         let nBits = 16;
         let n = 1;
+        let color = -1;
         let screen = 16384; 
         let powersOfTwo = Array.new(16);
         let counter = 0;
@@ -72,14 +73,17 @@ class Screen {
 
     /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
     function void drawLine(int x1, int y1, int x2, int y2) {
+
         var int dx, dy, a, b;
-        // always assumed dx,dy > 0; // can upgrade later
+        // always assumed dx,dy > 0; 
         
      let a = 0;
      let b = 0;
      let dx = x2 - x1;
      let dy = y2 - y1;
 
+    // handle dx | dy = 0;
+    // dx,dy <0, dx >0,dy <0, and dx < 0,dy > 0.
     
     while(~((a > dx) | (b > dy))) { // a less or equal to dx
         do Screen.drawPixel(x1 + a, y1 + b);

@@ -3,6 +3,9 @@ function Screen.init 3
     pop local 2
     push constant 1
     pop local 1
+    push constant 1
+    neg
+    pop static 2
     push constant 16384
     pop static 0
     push constant 16
@@ -65,9 +68,11 @@ label Screen_2
     push constant 0
     return
 function Screen.drawPixel 5
+    push static 0
     push constant 32
     push argument 1
     call Math.multiply 2
+    add
     push argument 0
     push constant 16
     call Math.divide 2
