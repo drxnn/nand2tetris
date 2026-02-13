@@ -49,23 +49,25 @@ class Screen {
 
     /** Draws the (x,y) pixel, using the current color. */
     function void drawPixel(int x, int y) {
-        var int bitInWord, word, wordIndex, value, reversedIndex;
+        var int bitInWord, word, wordIndex, value;
         let wordIndex = screen + (32 * y) + (x / 16);  
         let value = Memory.peek(wordIndex);
       
 
         let bitInWord = x - (16 * (x/16)); // this returns x mod 16 so its the 5th location in the word e.g 
 
-       let reversedIndex = 15 - bitInWord; // memory is read left to right but we need it r to left;
+       // let bitWord = 15 - bitInWord; // memory is read left to right but we need it r to left;
        if(color) {
-        let value = value | powersOfTwo[reversedIndex]; // 2^(16-bitInWord) // keep everything and add the 1 at pos bitInWord
+        let value = value | powersOfTwo[bitInWord]; // 2^(16-bitInWord) // keep everything and add the 1 at pos bitInWord
         do Memory.poke(wordIndex, value); // done if color == 1
         return; 
-       }
-    // if color == 0, then we want a white pixel and we are here
-        let value = value & ~(powersOfTwo[reversedIndex]);
+       } else {
+        let value = value & ~(powersOfTwo[bitInWord]);
         do Memory.poke(wordIndex, value); // done if color == 0
         return; 
+       }
+
+        
 
 
     }
@@ -74,8 +76,8 @@ class Screen {
     /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
     function void drawLine(int x1, int y1, int x2, int y2) {
 
-        var int dx, dy, a, b;
-        // always assumed dx,dy > 0; 
+        var int dx, dy, a, b, posDx, posDy, startX, startY, endX, endY;
+   
         
      let a = 0;
      let b = 0;
@@ -84,15 +86,76 @@ class Screen {
 
     // handle dx | dy = 0;
     // dx,dy <0, dx >0,dy <0, and dx < 0,dy > 0.
+   
+   if (dx = 0) {
+    // handle horizontal
+    let startY = Math.min(y1, y2);
+    let endY = Math.max(y1, y2);
     
-    while(~((a > dx) | (b > dy))) { // a less or equal to dx
-        do Screen.drawPixel(x1 + a, y1 + b);
-        if((a * dy) < (b * dx)) {
-            let a = a + 1;
-        } else {
-            let b = b + 1;
+    while (~(startY > endY)) {
+        do Screen.drawPixel(x1, startY);
+        let startY = startY + 1;
+    }
+    return;
+   }
+   if (dy = 0) {
+    let startX = Math.min(x1,x2);
+    let endX = Math.max(x1,x2);
+    while (~(startX > endX)){
+        do Screen.drawPixel(startX, y1);
+        let startX = startX +1;
+    }
+   }
+    
+    if ((dx > 0) & (dy > 0)){
+        while(~((a > dx) | (b > dy))) { // a less or equal to dx
+            do Screen.drawPixel(x1 + a, y1 + b);
+                if((a * dy) < (b * dx)) {
+                let a = a + 1;
+            } else {
+                let b = b + 1;
         }
     }   
+}
+    if ((dx > 0) & (dy < 0)) {
+        let posDy = -dy;
+    // we need to go down and to the right.
+        while(~((a > dx) | (b > posDy))) { //notX and
+        
+            //do Screen.drawLine(280,90,345,35);  
+            do Screen.drawPixel(x1 + a, y1 - b);
+            if((a * posDy) < (b * dx)) {
+                let a = a + 1;
+            } else {
+                let b = b + 1;
+        }
+    }
+}
+
+    if ((dx < 0) & (dy < 0)) {
+         let posDy = -dy;
+         let posDx = -dx;
+        while ( ~((a > posDx) | (b > posDy)) ) {
+            do Screen.drawPixel(x1 - a, y1 - b);
+            if((a * posDy) < (b * posDx)) {
+                let a = a + 1;
+            } else {
+                let b = b + 1;
+        }
+    }
+}
+
+if ((dx < 0) & (dy > 0)) {
+    let posDx = -dx;
+    while ( ~((a > posDx) | (b > dy)) ) {
+            do Screen.drawPixel(x1 - a, y1 + b);
+            if((a * dy) < (b * posDx)) {
+                let a = a + 1;
+            } else {
+                let b = b + 1;
+        }
+    }
+}
     return;
 }
 
@@ -101,8 +164,6 @@ class Screen {
     function void drawRectangle(int x1, int y1, int x2, int y2) {
             var int top;
             let top = y1;  // starts at the top
-
-
 
        while( ~(top > y2) ) { 
         do Screen.drawLine(x1, top, x2, top ); // x stays static, we draw straight lines

@@ -67,7 +67,7 @@ label Screen_2
     pop static 2
     push constant 0
     return
-function Screen.drawPixel 5
+function Screen.drawPixel 4
     push static 0
     push constant 32
     push argument 1
@@ -89,15 +89,11 @@ function Screen.drawPixel 5
     call Math.multiply 2
     sub
     pop local 0
-    push constant 15
-    push local 0
-    sub
-    pop local 4
     push static 2
     not
     if-goto Screen_5
     push local 3
-    push local 4
+    push local 0
     push static 1
     add
     pop pointer 1
@@ -112,9 +108,8 @@ function Screen.drawPixel 5
     return
     goto Screen_4
 label Screen_5
-label Screen_4
     push local 3
-    push local 4
+    push local 0
     push static 1
     add
     pop pointer 1
@@ -128,7 +123,8 @@ label Screen_4
     pop temp 0
     push constant 0
     return
-function Screen.drawLine 4
+label Screen_4
+function Screen.drawLine 10
     push constant 0
     pop local 2
     push constant 0
@@ -141,7 +137,84 @@ function Screen.drawLine 4
     push argument 1
     sub
     pop local 1
+    push local 0
+    push constant 0
+    eq
+    not
+    if-goto Screen_7
+    push argument 1
+    push argument 3
+    call Math.min 2
+    pop local 7
+    push argument 1
+    push argument 3
+    call Math.max 2
+    pop local 9
+label Screen_8
+    push local 7
+    push local 9
+    gt
+    not
+    not
+    if-goto Screen_9
+    push argument 0
+    push local 7
+    call Screen.drawPixel 2
+    pop temp 0
+    push local 7
+    push constant 1
+    add
+    pop local 7
+    goto Screen_8
+label Screen_9
+    push constant 0
+    return
+    goto Screen_6
+label Screen_7
 label Screen_6
+    push local 1
+    push constant 0
+    eq
+    not
+    if-goto Screen_11
+    push argument 0
+    push argument 2
+    call Math.min 2
+    pop local 6
+    push argument 0
+    push argument 2
+    call Math.max 2
+    pop local 8
+label Screen_12
+    push local 6
+    push local 8
+    gt
+    not
+    not
+    if-goto Screen_13
+    push local 6
+    push argument 1
+    call Screen.drawPixel 2
+    pop temp 0
+    push local 6
+    push constant 1
+    add
+    pop local 6
+    goto Screen_12
+label Screen_13
+    goto Screen_10
+label Screen_11
+label Screen_10
+    push local 0
+    push constant 0
+    gt
+    push local 1
+    push constant 0
+    gt
+    and
+    not
+    if-goto Screen_15
+label Screen_16
     push local 2
     push local 0
     gt
@@ -151,7 +224,7 @@ label Screen_6
     or
     not
     not
-    if-goto Screen_7
+    if-goto Screen_17
     push argument 0
     push local 2
     add
@@ -168,32 +241,206 @@ label Screen_6
     call Math.multiply 2
     lt
     not
-    if-goto Screen_9
+    if-goto Screen_19
     push local 2
     push constant 1
     add
     pop local 2
-    goto Screen_8
-label Screen_9
+    goto Screen_18
+label Screen_19
     push local 3
     push constant 1
     add
     pop local 3
-label Screen_8
-    goto Screen_6
-label Screen_7
+label Screen_18
+    goto Screen_16
+label Screen_17
+    goto Screen_14
+label Screen_15
+label Screen_14
+    push local 0
+    push constant 0
+    gt
+    push local 1
+    push constant 0
+    lt
+    and
+    not
+    if-goto Screen_21
+    push local 1
+    neg
+    pop local 5
+label Screen_22
+    push local 2
+    push local 0
+    gt
+    push local 3
+    push local 5
+    gt
+    or
+    not
+    not
+    if-goto Screen_23
+    push argument 0
+    push local 2
+    add
+    push argument 1
+    push local 3
+    sub
+    call Screen.drawPixel 2
+    pop temp 0
+    push local 2
+    push local 5
+    call Math.multiply 2
+    push local 3
+    push local 0
+    call Math.multiply 2
+    lt
+    not
+    if-goto Screen_25
+    push local 2
+    push constant 1
+    add
+    pop local 2
+    goto Screen_24
+label Screen_25
+    push local 3
+    push constant 1
+    add
+    pop local 3
+label Screen_24
+    goto Screen_22
+label Screen_23
+    goto Screen_20
+label Screen_21
+label Screen_20
+    push local 0
+    push constant 0
+    lt
+    push local 1
+    push constant 0
+    lt
+    and
+    not
+    if-goto Screen_27
+    push local 1
+    neg
+    pop local 5
+    push local 0
+    neg
+    pop local 4
+label Screen_28
+    push local 2
+    push local 4
+    gt
+    push local 3
+    push local 5
+    gt
+    or
+    not
+    not
+    if-goto Screen_29
+    push argument 0
+    push local 2
+    sub
+    push argument 1
+    push local 3
+    sub
+    call Screen.drawPixel 2
+    pop temp 0
+    push local 2
+    push local 5
+    call Math.multiply 2
+    push local 3
+    push local 4
+    call Math.multiply 2
+    lt
+    not
+    if-goto Screen_31
+    push local 2
+    push constant 1
+    add
+    pop local 2
+    goto Screen_30
+label Screen_31
+    push local 3
+    push constant 1
+    add
+    pop local 3
+label Screen_30
+    goto Screen_28
+label Screen_29
+    goto Screen_26
+label Screen_27
+label Screen_26
+    push local 0
+    push constant 0
+    lt
+    push local 1
+    push constant 0
+    gt
+    and
+    not
+    if-goto Screen_33
+    push local 0
+    neg
+    pop local 4
+label Screen_34
+    push local 2
+    push local 4
+    gt
+    push local 3
+    push local 1
+    gt
+    or
+    not
+    not
+    if-goto Screen_35
+    push argument 0
+    push local 2
+    sub
+    push argument 1
+    push local 3
+    add
+    call Screen.drawPixel 2
+    pop temp 0
+    push local 2
+    push local 1
+    call Math.multiply 2
+    push local 3
+    push local 4
+    call Math.multiply 2
+    lt
+    not
+    if-goto Screen_37
+    push local 2
+    push constant 1
+    add
+    pop local 2
+    goto Screen_36
+label Screen_37
+    push local 3
+    push constant 1
+    add
+    pop local 3
+label Screen_36
+    goto Screen_34
+label Screen_35
+    goto Screen_32
+label Screen_33
+label Screen_32
     push constant 0
     return
 function Screen.drawRectangle 1
     push argument 1
     pop local 0
-label Screen_10
+label Screen_38
     push local 0
     push argument 3
     gt
     not
     not
-    if-goto Screen_11
+    if-goto Screen_39
     push argument 0
     push local 0
     push argument 2
@@ -204,8 +451,8 @@ label Screen_10
     push constant 1
     add
     pop local 0
-    goto Screen_10
-label Screen_11
+    goto Screen_38
+label Screen_39
     push constant 0
     return
 function Screen.drawCircle 4
@@ -216,13 +463,13 @@ function Screen.drawCircle 4
     push argument 2
     neg
     pop local 0
-label Screen_12
+label Screen_40
     push local 0
     push argument 2
     gt
     not
     not
-    if-goto Screen_13
+    if-goto Screen_41
     push local 0
     push local 0
     call Math.multiply 2
@@ -250,7 +497,7 @@ label Screen_12
     push constant 1
     add
     pop local 0
-    goto Screen_12
-label Screen_13
+    goto Screen_40
+label Screen_41
     push constant 0
     return
