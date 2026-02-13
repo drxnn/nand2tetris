@@ -6,11 +6,11 @@
  */
 class Keyboard {
     static int char;
-    static boolean keyPressed;
 
     /** Initializes the keyboard. */
     function void init() {
-
+        let char = 0;
+return;
     } 
 
     /**
@@ -42,26 +42,131 @@ class Keyboard {
                 return 0;
                 }
 
-
-
     }
 
     /**	Waits until a key is pressed on the keyboard and released,
      *  then echoes the key to the screen, and returns the character 
      *  of the pressed key. */
     function char readChar() {
+        var char curr;
+        var int pressed, released;
+        let pressed = 0;
+
+        while(~(pressed)) {
+            let pressed = Keyboard.keyPressed();
+            if (pressed > 0) {
+                // user pressed a key
+                let curr = pressed; // save it
+                let released = 0;
+            }
+        }
+        while (~(released)) {
+            let pressed = Keyboard.keyPressed();
+            if (pressed = 0){
+                let released = -1; // user has let go of key
+            }
+        }
+       
+             do Output.printChar(curr);
+            return curr;
+        
+           
+
     }
 
     /**	Displays the message on the screen, reads from the keyboard the entered
      *  text until a newline character is detected, echoes the text to the screen,
      *  and returns its value. Also handles user backspaces. */
     function String readLine(String message) {
-    }   
+        var int currKey, pressed, released;
+        var String str;
+        var boolean submitted;
+        let str = String.new(100);
+        let submitted = 0;
+
+        let pressed = 0;
+        do Output.printString(message);
+        while(~(submitted)) {
+            let pressed = 0;
+            while (~(pressed)){
+                let pressed = Keyboard.keyPressed();
+            }
+           
+             let currKey = pressed;
+             let released = 0;
+             while(~(released)) {
+                if (Keyboard.keyPressed() = 0) {
+                let released = true;
+            }
+        }
+            if (currKey = 128) {
+                let submitted = -1; // user pressed newline
+            } else {
+                 if (currKey = 129){ 
+                    if (str.length() > 0) { 
+                        do str.eraseLastChar(); // go back one;
+                        do Output.backSpace();
+                    }
+            } else {
+                do str.appendChar(currKey);
+                do Output.printChar(currKey);
+
+            }
+            
+        }
+    }
+        do Output.println();
+        return str;
+}   
 
     /** Displays the message on the screen, reads from the keyboard the entered
      *  text until a newline character is detected, echoes the text to the screen,
      *  and returns its integer value (until the first non-digit character in the
      *  entered text is detected). Also handles user backspaces. */
     function int readInt(String message) {
+        var boolean submitted;
+        var int stringLen, currKey, pressed, released;
+        var String str;
+
+        let submitted = 0;
+        let str = String.new(50); 
+        let stringLen = message.length();
+        do Output.printString(message);
+        let pressed = 0;
+               while(~(submitted)) { 
+                    while (~(pressed)) {
+                    let pressed = Keyboard.keyPressed();
+        }
+    
+            let currKey = pressed;
+            let released = 0;
+            while(~(released)) {
+                if (Keyboard.keyPressed() = 0) {
+                let released = true;
+            }
+        }
+        
+                if (currKey = 128) {
+                let submitted = -1; // user pressed newline
+                do Output.println();
+    } else {
+             if (currKey = 129) { 
+    if (str.length() > 0) { 
+        do str.eraseLastChar();
+        do Output.backSpace();
+    }
+} else {  
+    if ((currKey > 47) & (currKey < 58) | (currKey = 45)) { // either digits or -digits
+        do str.appendChar(currKey);
+        do Output.printChar(currKey); 
+    }
+
+            }
+        }
+        let pressed = 0;
+    }
+    return str.intValue();
     }
 }
+
+
