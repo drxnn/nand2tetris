@@ -10,7 +10,7 @@ class Keyboard {
     /** Initializes the keyboard. */
     function void init() {
         let char = 0;
-return;
+        return;
     } 
 
     /**
