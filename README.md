@@ -4,9 +4,12 @@ Nand2tetris is a hands-on journey that builds a complete computer system from th
 
 Technologies used:
 HDL (For chapters 1,2,3,5);
-Hack assembly (chapter 4)
-Rust (For the assembler, vm_translator and compiler)
-Jack (For the OS).
+
+Hack assembly (chapter 4);
+
+Rust (For the assembler, vm_translator and compiler);
+
+Jack (For the OS);
 
 Below is a small summary for each chapter: 
 
