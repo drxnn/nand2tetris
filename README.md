@@ -1,6 +1,6 @@
 # Nand2Tetris
 
-This repository contains my complete implementation of the Nand2Tetris course projects from *The Elements of Computing Systems* by Noam Nisan and Shimon Schocken.
+This repository contains my complete implementation of the Nand2Tetris projects from *The Elements of Computing Systems* by Noam Nisan and Shimon Schocken.
 
 Nand2tetris is a hands-on journey that builds a complete computer system from the ground up, starting with basic logic gates and culminating in a high-level programming language and operating system. Each project builds upon the previous ones, demonstrating how complex systems emerge from simple components.
 
